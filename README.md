@@ -238,7 +238,7 @@ Turn AI compositions into DAW clips:
 ### Build + Install (macOS, Linux, Windows)
 
 ```bash
-git clone https://github.com/poucet/droplets.git
+git clone https://github.com/simply-audio/droplets.git
 cd droplets
 
 # Build bundles for your platform into target/bundle/
