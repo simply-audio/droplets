@@ -1465,7 +1465,7 @@ mod timed_note_tests {
             let off = events
                 .iter()
                 .find(|(_, _, n, on)| *n == pitch && !*on)
-                .expect(&format!("missing NoteOff for pitch {}", pitch));
+                .unwrap_or_else(|| panic!("missing NoteOff for pitch {}", pitch));
             assert!(
                 (off.0 - expected_end).abs() < buffer_beats(),
                 "pitch {} NoteOff at {:.3}, expected ≈ {:.3}",

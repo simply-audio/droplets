@@ -1091,7 +1091,7 @@ mod tests {
                 .events
                 .iter()
                 .filter_map(|e| match e.event {
-                    FugueEvent::PerNotePressure { channel, note, .. } if note == 64 => Some(channel),
+                    FugueEvent::PerNotePressure { channel, note: 64, .. } => Some(channel),
                     _ => None,
                 })
                 .collect();

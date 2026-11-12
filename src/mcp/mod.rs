@@ -234,7 +234,7 @@ async fn controller_ws_loop(mut socket: WebSocket) {
                             log::warn!("controller WS: failed to serialize command");
                             continue;
                         };
-                        if socket.send(Message::Text(json.into())).await.is_err() {
+                        if socket.send(Message::Text(json)).await.is_err() {
                             log::info!("controller WebSocket disconnected (send failed)");
                             break;
                         }

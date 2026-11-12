@@ -178,27 +178,27 @@ impl<'a> PluginAudioProcessor<'a, DropletShared<'a>, DropletMainThread<'a>>
 
             // Forward MIDI 1.0 events
             if let Some(midi) = event.as_event::<MidiEvent>() {
-                let _ = events.output.try_push(&MidiEvent::new(time, 0, midi.data()));
+                let _ = events.output.try_push(MidiEvent::new(time, 0, midi.data()));
             }
 
             // Forward MIDI 2.0 events
             if let Some(midi2) = event.as_event::<Midi2Event>() {
-                let _ = events.output.try_push(&Midi2Event::new(time, 0, midi2.data()));
+                let _ = events.output.try_push(Midi2Event::new(time, 0, midi2.data()));
             }
 
             // Forward CLAP note events
             if let Some(note_on) = event.as_event::<NoteOnEvent>() {
-                let _ = events.output.try_push(&NoteOnEvent::new(time, note_on.pckn(), note_on.velocity()));
+                let _ = events.output.try_push(NoteOnEvent::new(time, note_on.pckn(), note_on.velocity()));
             }
 
             if let Some(note_off) = event.as_event::<NoteOffEvent>() {
-                let _ = events.output.try_push(&NoteOffEvent::new(time, note_off.pckn(), note_off.velocity()));
+                let _ = events.output.try_push(NoteOffEvent::new(time, note_off.pckn(), note_off.velocity()));
             }
 
             // Forward note expression events
             if let Some(expr) = event.as_event::<NoteExpressionEvent>() {
                 if let Some(expr_type) = expr.expression_type() {
-                    let _ = events.output.try_push(&NoteExpressionEvent::new(time, expr.pckn(), expr_type, expr.value()));
+                    let _ = events.output.try_push(NoteExpressionEvent::new(time, expr.pckn(), expr_type, expr.value()));
                 }
             }
         }
@@ -352,6 +352,12 @@ impl<'a> DropletMidiProcessor<'a> {
 
     /// Output a CC ramp with interpolation. Curve shape comes from
     /// [`InterpolationMode::apply_curve`] — all non-stepped curves share the same loop.
+    ///
+    /// 9 parameters: each scalar is a ramp coordinate (channel, CC, start/end
+    /// value and sample offset, interpolation mode). Grouping them into a struct
+    /// would cost an allocation per ramp, which happens thousands of times per
+    /// second during fugue playback.
+    #[allow(clippy::too_many_arguments)]
     fn output_cc_ramp(
         &self,
         channel: u8,
@@ -407,7 +413,7 @@ impl<'a> DropletMidiProcessor<'a> {
         // MIDI 1.0: 3-byte CC message
         let status = 0xB0 | (cc.channel & 0x0F);
         let midi1_data = [status, cc.cc, cc.value];
-        let _ = events.output.try_push(&MidiEvent::new(sample_offset, 0, midi1_data));
+        let _ = events.output.try_push(MidiEvent::new(sample_offset, 0, midi1_data));
 
         // MIDI 2.0: UMP with 32-bit CC value for high-resolution CLAP hosts
         let value_32bit = if let Some(val_14) = cc.value_14bit {
@@ -416,7 +422,7 @@ impl<'a> DropletMidiProcessor<'a> {
             let v = cc.value as u32;
             (v << 25) | (v << 18) | (v << 11) | (v << 4)
         };
-        let _ = events.output.try_push(&Midi2Event::new(sample_offset, 0, build_ump_cc(0, cc.channel, cc.cc, value_32bit)));
+        let _ = events.output.try_push(Midi2Event::new(sample_offset, 0, build_ump_cc(0, cc.channel, cc.cc, value_32bit)));
     }
 
     /// Output a Note message as CLAP-native + MIDI 2.0 at sample offset
@@ -426,14 +432,14 @@ impl<'a> DropletMidiProcessor<'a> {
 
         // CLAP-native: Translated to VST3 by clap_wrapper
         if note.is_note_on {
-            let _ = events.output.try_push(&NoteOnEvent::new(sample_offset, pckn, velocity_f64));
+            let _ = events.output.try_push(NoteOnEvent::new(sample_offset, pckn, velocity_f64));
         } else {
-            let _ = events.output.try_push(&NoteOffEvent::new(sample_offset, pckn, velocity_f64));
+            let _ = events.output.try_push(NoteOffEvent::new(sample_offset, pckn, velocity_f64));
         }
 
         // MIDI 2.0: High-resolution 16-bit velocity for CLAP hosts
         let ump = build_ump_note(0, note.channel, note.note, note.velocity_16bit, note.is_note_on);
-        let _ = events.output.try_push(&Midi2Event::new(sample_offset, 0, ump));
+        let _ = events.output.try_push(Midi2Event::new(sample_offset, 0, ump));
     }
 
     /// Output a per-note expression as CLAP-native + MIDI 2.0 at sample offset
@@ -444,11 +450,11 @@ impl<'a> DropletMidiProcessor<'a> {
         match expr.expression_type {
             PerNoteExpressionType::PitchBend { value } => {
                 let normalized = (value as i64 - 0x80000000i64) as f64 / 0x80000000u32 as f64;
-                let _ = events.output.try_push(&NoteExpressionEvent::new(sample_offset, pckn, NoteExpressionType::Tuning, normalized * 120.0));
+                let _ = events.output.try_push(NoteExpressionEvent::new(sample_offset, pckn, NoteExpressionType::Tuning, normalized * 120.0));
             }
             PerNoteExpressionType::Pressure { value } => {
                 let normalized = value as f64 / u32::MAX as f64;
-                let _ = events.output.try_push(&NoteExpressionEvent::new(sample_offset, pckn, NoteExpressionType::Pressure, normalized));
+                let _ = events.output.try_push(NoteExpressionEvent::new(sample_offset, pckn, NoteExpressionType::Pressure, normalized));
             }
             _ => {}
         }
@@ -472,7 +478,7 @@ impl<'a> DropletMidiProcessor<'a> {
                 let pressure_7bit = (value >> 25) as u8; // u32 → 7-bit
                 let status = 0xA0 | (expr.channel & 0x0F);
                 let midi1_data = [status, expr.note & 0x7F, pressure_7bit & 0x7F];
-                let _ = events.output.try_push(&MidiEvent::new(sample_offset, 0, midi1_data));
+                let _ = events.output.try_push(MidiEvent::new(sample_offset, 0, midi1_data));
             }
             PerNoteExpressionType::PitchBend { value } => {
                 // Map the 32-bit per-note bend into a 14-bit channel
@@ -484,7 +490,7 @@ impl<'a> DropletMidiProcessor<'a> {
                     (bend_14bit & 0x7F) as u8,       // LSB
                     ((bend_14bit >> 7) & 0x7F) as u8, // MSB
                 ];
-                let _ = events.output.try_push(&MidiEvent::new(sample_offset, 0, midi1_data));
+                let _ = events.output.try_push(MidiEvent::new(sample_offset, 0, midi1_data));
             }
             _ => {}
         }
@@ -507,7 +513,7 @@ impl<'a> DropletMidiProcessor<'a> {
                 build_ump_per_note_mgmt(0, expr.channel, expr.note, flags)
             }
         };
-        let _ = events.output.try_push(&Midi2Event::new(sample_offset, 0, ump));
+        let _ = events.output.try_push(Midi2Event::new(sample_offset, 0, ump));
     }
 }
 

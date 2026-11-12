@@ -91,8 +91,7 @@ fn handle_self(instance_id: &str) -> String {
 fn handle_slots(instance: &str) -> String {
     match api::get_slots(instance) {
         Ok(response) => {
-            let result = serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed"));
-            result
+            serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed"))
         }
         Err(e) => serialize_error(&e),
     }

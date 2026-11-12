@@ -1,6 +1,11 @@
 pub mod api;
 pub mod drag;
 mod dpi;
+// The `gui` module shares the name of its parent because it exports the main
+// types (`DropletGui`, size constants) that define what "GUI" means to this
+// plugin, while the parent module organizes related GUI subsystems (api,
+// routes, server, webview). This is a common pattern for facade modules.
+#[allow(clippy::module_inception)]
 mod gui;
 mod plugin;
 pub mod routes;

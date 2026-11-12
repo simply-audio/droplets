@@ -557,6 +557,11 @@ impl Fugue {
     /// "curve to this point" convention). When `None`, the fugue-level
     /// `cc_interpolation` is used. This lets a single fugue combine curves
     /// across segments — e.g. exp up then log down for a filter pump.
+    ///
+    /// 8 parameters: each scalar is a CC event coordinate (channel, CC,
+    /// value, optional curve, beat/sample offsets). Grouping them would
+    /// add indirection on the audio thread.
+    #[allow(clippy::too_many_arguments)]
     fn process_cc_event(
         &mut self,
         channel: u8,

@@ -429,11 +429,9 @@ fn serve_static_asset(path: &str, dev_mode: bool) -> Option<Response<Vec<u8>>> {
 
     // For bundled assets, we need to handle common asset paths
     // The bundled HTML references assets like /assets/index-xxx.js
-    let bundled_content: Option<&[u8]> = match path {
-        // Add bundled assets here if needed for production builds
-        // For now, we rely on dev mode or inline assets
-        _ => None,
-    };
+    // Add bundled assets here if needed for production builds
+    // For now, we rely on dev mode or inline assets
+    let bundled_content: Option<&[u8]> = None;
 
     bundled_content.map(|content| {
         Response::builder()

@@ -8,7 +8,7 @@
 //!
 //! Controller-side reading path (Bitwig API): `device.setObservedParameterIds([id])`
 //! + `addDirectParameterValueDisplayObserver` gives the formatted string we
-//! write here via `value_to_text`.
+//!   write here via `value_to_text`.
 
 use clack_extensions::params::*;
 use clack_plugin::events::io::{InputEvents, OutputEvents};

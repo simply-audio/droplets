@@ -27,7 +27,7 @@ fn main() {
     // compile error rather than silently falling back — we want this table
     // to be the canonical source.
     for key in ["display_name", "vendor", "clap_bundle_id"] {
-        let value = extract_string(&section, key)
+        let value = extract_string(section, key)
             .unwrap_or_else(|| panic!("Cargo.toml [package.metadata.bundle] missing '{}'", key));
         let env_var = format!("DROPLETS_{}", key.to_uppercase());
         println!("cargo:rustc-env={}={}", env_var, value);

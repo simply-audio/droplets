@@ -30,7 +30,7 @@ impl<'a> PluginGuiImpl for DropletMainThread<'a> {
         }
     }
 
-    fn get_preferred_api(&mut self) -> Option<GuiConfiguration> {
+    fn get_preferred_api(&mut self) -> Option<GuiConfiguration<'_>> {
         Some(GuiConfiguration {
             api_type: GuiApiType::default_for_current_platform()?,
             // no known host supports floating mode at this time

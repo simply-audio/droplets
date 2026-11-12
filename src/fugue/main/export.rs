@@ -228,7 +228,9 @@ fn densify_cc_events(
     events: &[TimedFugueEvent],
     fugue_default_curve: InterpolationMode,
 ) -> Vec<TimedFugueEvent> {
-    let mut cc_lanes: HashMap<(u8, u8), Vec<(f64, u8, InterpolationMode)>> = HashMap::new();
+    // (channel, CC) → points: (beat_offset, value, interpolation)
+    type CcLane = Vec<(f64, u8, InterpolationMode)>;
+    let mut cc_lanes: HashMap<(u8, u8), CcLane> = HashMap::new();
     let mut non_cc_events: Vec<TimedFugueEvent> = Vec::new();
 
     for event in events {

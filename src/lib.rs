@@ -92,7 +92,7 @@ impl DefaultPluginFactory for DropletPlugin {
             .with_features(features)
     }
 
-    fn new_shared(host: HostSharedHandle) -> Result<Self::Shared<'_>, PluginError> {
+    fn new_shared(host: HostSharedHandle<'_>) -> Result<Self::Shared<'_>, PluginError> {
         logger::init_logger();
 
         // GUI IPC channel

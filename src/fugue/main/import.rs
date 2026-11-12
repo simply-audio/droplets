@@ -197,7 +197,8 @@ fn parse_track(
     //
     // The queue (not a single slot) is load-bearing: rapid retriggers of
     // the same pitch are legal MIDI — pairs with the oldest unmatched on.
-    let mut active: HashMap<(u8, u8), Vec<(f64, u8)>> = HashMap::new();
+    type NoteQueue = Vec<(f64, u8)>; // (onset_beat, velocity)
+    let mut active: HashMap<(u8, u8), NoteQueue> = HashMap::new();
     let mut abs_ticks: u64 = 0;
     let mut max_tick: u64 = 0;
     let mut end_tick: Option<u64> = None;
@@ -281,7 +282,7 @@ fn parse_track(
     let close_beat = close_tick as f64 / ppq;
     // Sort for determinism — HashMap iteration order is nondeterministic,
     // and we want round-trip tests to see a stable event stream.
-    let mut dangling: Vec<((u8, u8), Vec<(f64, u8)>)> = active.drain().collect();
+    let mut dangling: Vec<((u8, u8), NoteQueue)> = active.drain().collect();
     dangling.sort_by_key(|(k, _)| *k);
     for ((channel, note), queue) in dangling {
         for (onset, velocity) in queue {
@@ -406,7 +407,7 @@ mod tests {
         )
         .with_tag("melody");
 
-        let bytes = fugues_to_smf(&[original.clone()], 120.0);
+        let bytes = fugues_to_smf(std::slice::from_ref(&original), 120.0);
         let imported = smf_to_fugues(&bytes, &ImportOptions::default()).unwrap();
 
         assert_eq!(imported.len(), 1);
@@ -468,25 +469,26 @@ mod tests {
     fn synthetic_tag_when_track_name_missing() {
         // Hand-craft an SMF with one track that has a note but no TrackName.
         use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
-        let mut track: Track = Vec::new();
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Midi {
-                channel: u4::new(0),
-                message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+        let track: Track = vec![
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Midi {
+                    channel: u4::new(0),
+                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+                },
             },
-        });
-        track.push(TrackEvent {
-            delta: u28::new(480),
-            kind: TrackEventKind::Midi {
-                channel: u4::new(0),
-                message: MidiMessage::NoteOff { key: u7::new(60), vel: u7::new(0) },
+            TrackEvent {
+                delta: u28::new(480),
+                kind: TrackEventKind::Midi {
+                    channel: u4::new(0),
+                    message: MidiMessage::NoteOff { key: u7::new(60), vel: u7::new(0) },
+                },
             },
-        });
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
-        });
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
+            },
+        ];
 
         let smf = Smf {
             header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
@@ -505,25 +507,26 @@ mod tests {
         // Many DAWs emit note-off as NoteOn vel=0 (running status). The
         // importer must pair that with the prior on and close the note.
         use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
-        let mut track: Track = Vec::new();
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Midi {
-                channel: u4::new(0),
-                message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+        let track: Track = vec![
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Midi {
+                    channel: u4::new(0),
+                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+                },
             },
-        });
-        track.push(TrackEvent {
-            delta: u28::new(480),
-            kind: TrackEventKind::Midi {
-                channel: u4::new(0),
-                message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(0) },
+            TrackEvent {
+                delta: u28::new(480),
+                kind: TrackEventKind::Midi {
+                    channel: u4::new(0),
+                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(0) },
+                },
             },
-        });
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
-        });
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
+            },
+        ];
 
         let smf = Smf {
             header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
@@ -544,18 +547,19 @@ mod tests {
         // on/off pair, closed at end-of-track, so the fugue doesn't leave
         // stuck notes in the scheduler.
         use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
-        let mut track: Track = Vec::new();
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Midi {
-                channel: u4::new(0),
-                message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+        let track: Track = vec![
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Midi {
+                    channel: u4::new(0),
+                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+                },
             },
-        });
-        track.push(TrackEvent {
-            delta: u28::new(960),
-            kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
-        });
+            TrackEvent {
+                delta: u28::new(960),
+                kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
+            },
+        ];
 
         let smf = Smf {
             header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
@@ -617,18 +621,19 @@ mod tests {
     #[test]
     fn strict_mode_rejects_pitch_bend() {
         use midly::{Format, Header, PitchBend, Track, TrackEvent, num::{u14, u15, u28, u4}};
-        let mut track: Track = Vec::new();
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Midi {
-                channel: u4::new(0),
-                message: MidiMessage::PitchBend { bend: PitchBend(u14::new(8192)) },
+        let track: Track = vec![
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Midi {
+                    channel: u4::new(0),
+                    message: MidiMessage::PitchBend { bend: PitchBend(u14::new(8192)) },
+                },
             },
-        });
-        track.push(TrackEvent {
-            delta: u28::new(0),
-            kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
-        });
+            TrackEvent {
+                delta: u28::new(0),
+                kind: TrackEventKind::Meta(MetaMessage::EndOfTrack),
+            },
+        ];
 
         let smf = Smf {
             header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
@@ -732,7 +737,7 @@ mod tests {
         )
         .with_tag("roundtrip");
 
-        let bytes = fugues_to_smf(&[original.clone()], 120.0);
+        let bytes = fugues_to_smf(std::slice::from_ref(&original), 120.0);
         let imported = smf_to_fugues(&bytes, &ImportOptions::default()).unwrap();
         assert_eq!(imported.len(), 1, "single-track round-trip");
         let got = &imported[0];

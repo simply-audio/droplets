@@ -50,10 +50,7 @@ fn project_layout_tx() -> &'static broadcast::Sender<ProjectLayout> {
 /// the host controller extension, and both need to reach the UI. Silent
 /// no-op when no clients are connected.
 pub fn broadcast_project_layout(layout: ProjectLayout) {
-    match project_layout_tx().send(layout) {
-        Ok(n) => (),
-        Err(_) => ()
-    }
+    let _ = project_layout_tx().send(layout);
 }
 
 /// Default port for the GUI server (plugin)
