@@ -20,8 +20,8 @@
 //!   lock-free `ArcSwap` caches.
 
 pub mod audio;
-pub mod main;
 mod command;
+pub mod main;
 mod types;
 
 pub use audio::{Fugue, FugueSequencer};

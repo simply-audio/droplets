@@ -3,11 +3,11 @@
 //! This runs the MCP bridge, GUI server, and outputs MIDI messages to a virtual MIDI port
 //! for quick testing without needing to load the plugin in a DAW.
 
-use midir::{MidiOutput, MidiOutputConnection};
-#[cfg(unix)]
-use midir::os::unix::VirtualOutput;
 use droplets::gui::{configure_webview, WebViewConfig, DEFAULT_GUI_SIZE};
 use droplets::mcp::MidiMessage;
+#[cfg(unix)]
+use midir::os::unix::VirtualOutput;
+use midir::{MidiOutput, MidiOutputConnection};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -233,7 +233,12 @@ fn main() {
                     ProcessedEvent::Instant { message, .. } => {
                         send_standalone_midi(&conn_out_fugue, &message);
                     }
-                    ProcessedEvent::CcRamp { channel, cc, end_value, .. } => {
+                    ProcessedEvent::CcRamp {
+                        channel,
+                        cc,
+                        end_value,
+                        ..
+                    } => {
                         // Each 5ms step emits the interpolated value at the end
                         // of this buffer — ~200 Hz update rate, plenty smooth.
                         let msg = MidiMessage::Cc(CcMessage::new(channel, cc, end_value));
@@ -320,8 +325,7 @@ fn main() {
     // with `None` means drag IPC messages hit the `NoWindow` fallback
     // (reveal-in-file-manager) rather than attempting a native drag
     // against a window handle we don't control cleanly here.
-    let drag_state: droplets::gui::drag::DragState =
-        Arc::new(Mutex::new(None));
+    let drag_state: droplets::gui::drag::DragState = Arc::new(Mutex::new(None));
     let config = WebViewConfig::plugin(ipc_sender, instance_id, drag_state);
     let builder = configure_webview(WebViewBuilder::new(), Arc::clone(&params_inst), config);
 
@@ -441,14 +445,11 @@ fn push_state_to_webview(
         let current_ids: Vec<u64> = infos.iter().map(|f| f.id).collect();
         let current_waiting: Vec<bool> = infos.iter().map(|f| f.is_waiting).collect();
         if current_ids != *last_fugue_ids || current_waiting != *last_waiting_states {
-            let defs = droplets::fugue::FugueBridge::get_definitions(instance_id)
-                .unwrap_or_default();
+            let defs =
+                droplets::fugue::FugueBridge::get_definitions(instance_id).unwrap_or_default();
             let infos_json = serde_json::to_string(&infos).unwrap_or_else(|_| "[]".into());
             let defs_json = serde_json::to_string(&defs).unwrap_or_else(|_| "[]".into());
-            let js = format!(
-                "window.simplyvst._pushFugues({},{})",
-                infos_json, defs_json
-            );
+            let js = format!("window.simplyvst._pushFugues({},{})", infos_json, defs_json);
             let _ = webview.evaluate_script(&js);
             *last_fugue_ids = current_ids;
             *last_waiting_states = current_waiting;

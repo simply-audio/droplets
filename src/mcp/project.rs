@@ -24,7 +24,6 @@ fn serialize_midi_as_name<S: serde::Serializer>(note: &u8, s: S) -> Result<S::Ok
     s.serialize_str(&midi_to_name(*note))
 }
 
-
 /// Project-wide snapshot pushed by the host controller extension.
 ///
 /// Keyed by track name. Tracks without a Droplets device are included too —
@@ -166,9 +165,10 @@ impl ProjectState {
         let instances = registered_instances
             .iter()
             .map(|(id, name)| {
-                let track = layout.tracks.iter().find(|t| {
-                    t.droplets_instance_id.as_deref() == Some(id.as_str())
-                });
+                let track = layout
+                    .tracks
+                    .iter()
+                    .find(|t| t.droplets_instance_id.as_deref() == Some(id.as_str()));
                 InstanceSummary {
                     id: id.clone(),
                     name: name.clone(),
@@ -182,7 +182,9 @@ impl ProjectState {
             .tracks
             .iter()
             .filter(|t| t.droplets_instance_id.is_none())
-            .map(|t| OtherTrackSummary { name: t.track_name.clone() })
+            .map(|t| OtherTrackSummary {
+                name: t.track_name.clone(),
+            })
             .collect();
 
         Self {
@@ -284,7 +286,10 @@ mod tests {
         let layout = sample_layout();
         let state = ProjectState::build(Some(&layout), &sample_instances(), String::new());
         let bass = &state.instances[1];
-        let Some(PrimaryDevice::Instrument { name, preset_name, .. }) = &bass.primary_device else {
+        let Some(PrimaryDevice::Instrument {
+            name, preset_name, ..
+        }) = &bass.primary_device
+        else {
             panic!("expected instrument primary");
         };
         assert_eq!(name, "Serum");
@@ -318,8 +323,9 @@ mod tests {
             "remote_controls":[],"primary_device":{"type":"drum_machine","name":"DM",
             "pads":[{"note":36,"name":"Kick"}]}}]}"#;
         let layout: ProjectLayout = serde_json::from_str(inbound).unwrap();
-        let Some(PrimaryDevice::DrumMachine { pads, .. }) = &layout.tracks[0].primary_device
-        else { panic!("expected drum machine"); };
+        let Some(PrimaryDevice::DrumMachine { pads, .. }) = &layout.tracks[0].primary_device else {
+            panic!("expected drum machine");
+        };
         assert_eq!(pads[0].note, 36);
 
         // String notes are rejected — keeps the contract tight so a misbehaving

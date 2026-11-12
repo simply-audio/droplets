@@ -316,12 +316,7 @@ impl Fugue {
         let local_end = end_beat - self.start_beat;
 
         // Process active ramps that continue from previous buffers
-        self.process_active_ramps(
-            current_beat,
-            end_beat,
-            beats_per_sample,
-            events,
-        );
+        self.process_active_ramps(current_beat, end_beat, beats_per_sample, events);
 
         // Tolerance for the `>= local_start` gate below. Widened to one
         // full buffer's worth of beats — **not** one sample — because the
@@ -387,12 +382,7 @@ impl Fugue {
                 let sample_offset = raw_sample_offset;
 
                 // Process the event based on type
-                self.process_event(
-                    &event,
-                    beat_offset,
-                    sample_offset,
-                    events,
-                );
+                self.process_event(&event, beat_offset, sample_offset, events);
             }
 
             self.next_event_index += 1;
@@ -410,7 +400,9 @@ impl Fugue {
         // slot value out first releases the short-lived &mut on the
         // slice so the subsequent `self.` calls type-check.
         for i in 0..self.pending_note_offs.len() {
-            let Some(p) = self.pending_note_offs[i] else { continue };
+            let Some(p) = self.pending_note_offs[i] else {
+                continue;
+            };
 
             // Subtle: we fire a NoteOff at the exact sample the note
             // was scheduled to end at. If another TimedNote for the
@@ -427,7 +419,10 @@ impl Fugue {
                 // race). Fire the NoteOff at sample 0 to avoid a
                 // stuck voice.
                 let msg = MidiMessage::Note(NoteMessage::new(p.channel, p.note, 0, false));
-                events.push(ProcessedEvent::Instant { sample_offset: 0, message: msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset: 0,
+                    message: msg,
+                });
                 self.set_note_inactive(p.channel, p.note);
                 self.pending_note_offs[i] = None;
             } else if p.end_absolute_beat < end_beat {
@@ -436,7 +431,10 @@ impl Fugue {
                     .floor()
                     .max(0.0) as u32;
                 let msg = MidiMessage::Note(NoteMessage::new(p.channel, p.note, 0, false));
-                events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset,
+                    message: msg,
+                });
                 self.set_note_inactive(p.channel, p.note);
                 self.pending_note_offs[i] = None;
             }
@@ -463,17 +461,32 @@ impl Fugue {
         events: &mut Vec<ProcessedEvent>,
     ) {
         match event {
-            FugueEvent::NoteOn { channel, note, velocity } => {
+            FugueEvent::NoteOn {
+                channel,
+                note,
+                velocity,
+            } => {
                 self.set_note_active(*channel, *note);
                 let msg = MidiMessage::Note(NoteMessage::new(*channel, *note, *velocity, true));
-                events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset,
+                    message: msg,
+                });
             }
             FugueEvent::NoteOff { channel, note, .. } => {
                 self.set_note_inactive(*channel, *note);
                 let msg = MidiMessage::Note(NoteMessage::new(*channel, *note, 0, false));
-                events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset,
+                    message: msg,
+                });
             }
-            FugueEvent::TimedNote { channel, note, velocity, duration_beats } => {
+            FugueEvent::TimedNote {
+                channel,
+                note,
+                velocity,
+                duration_beats,
+            } => {
                 // Zero- or negative-duration notes never existed — skip
                 // entirely rather than emitting a NoteOn with no
                 // matching NoteOff scheduled.
@@ -491,14 +504,20 @@ impl Fugue {
                 {
                     let off_sample = sample_offset.saturating_sub(1);
                     let msg = MidiMessage::Note(NoteMessage::new(*channel, *note, 0, false));
-                    events.push(ProcessedEvent::Instant { sample_offset: off_sample, message: msg });
+                    events.push(ProcessedEvent::Instant {
+                        sample_offset: off_sample,
+                        message: msg,
+                    });
                     *slot = None;
                     // The bitset will be re-set by the NoteOn below, so
                     // no need to touch it here.
                 }
                 self.set_note_active(*channel, *note);
                 let on_msg = MidiMessage::Note(NoteMessage::new(*channel, *note, *velocity, true));
-                events.push(ProcessedEvent::Instant { sample_offset, message: on_msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset,
+                    message: on_msg,
+                });
 
                 // Push a PendingNoteOff at the absolute end beat. Stored
                 // in absolute coords so `reset_for_loop` / `phase_lock`
@@ -525,27 +544,64 @@ impl Fugue {
                         .filter_map(|(i, s)| s.map(|p| (i, p)))
                         .min_by_key(|(_, p)| p.seq)
                     {
-                        let msg = MidiMessage::Note(NoteMessage::new(stolen.channel, stolen.note, 0, false));
-                        events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+                        let msg = MidiMessage::Note(NoteMessage::new(
+                            stolen.channel,
+                            stolen.note,
+                            0,
+                            false,
+                        ));
+                        events.push(ProcessedEvent::Instant {
+                            sample_offset,
+                            message: msg,
+                        });
                         self.set_note_inactive(stolen.channel, stolen.note);
                         self.pending_note_offs[idx] = Some(entry);
                     }
                 }
             }
-            FugueEvent::Cc { channel, controller, value, interpolation } => {
-                self.process_cc_event(*channel, *controller, *value, Some(*interpolation), beat_offset, sample_offset, events);
+            FugueEvent::Cc {
+                channel,
+                controller,
+                value,
+                interpolation,
+            } => {
+                self.process_cc_event(
+                    *channel,
+                    *controller,
+                    *value,
+                    Some(*interpolation),
+                    beat_offset,
+                    sample_offset,
+                    events,
+                );
             }
-            FugueEvent::PerNotePitchBend { channel, note, semitones, .. } => {
+            FugueEvent::PerNotePitchBend {
+                channel,
+                note,
+                semitones,
+                ..
+            } => {
                 let msg = MidiMessage::PerNoteExpression(
                     PerNoteExpressionMessage::pitch_bend_semitones(*channel, *note, *semitones),
                 );
-                events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset,
+                    message: msg,
+                });
             }
-            FugueEvent::PerNotePressure { channel, note, pressure, .. } => {
+            FugueEvent::PerNotePressure {
+                channel,
+                note,
+                pressure,
+                ..
+            } => {
                 let msg = MidiMessage::PerNoteExpression(
                     PerNoteExpressionMessage::pressure_normalized(*channel, *note, *pressure),
                 );
-                events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+                events.push(ProcessedEvent::Instant {
+                    sample_offset,
+                    message: msg,
+                });
             }
             _ => {}
         }
@@ -587,7 +643,10 @@ impl Fugue {
         // If no previous value or stepped mode, emit instant CC.
         if prev_value.is_none() || segment_curve == InterpolationMode::None {
             let msg = MidiMessage::Cc(CcMessage::new(channel, cc, value));
-            events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+            events.push(ProcessedEvent::Instant {
+                sample_offset,
+                message: msg,
+            });
             return;
         }
 
@@ -596,7 +655,10 @@ impl Fugue {
         // If values are the same, just emit instant (no ramp needed)
         if start_value == value {
             let msg = MidiMessage::Cc(CcMessage::new(channel, cc, value));
-            events.push(ProcessedEvent::Instant { sample_offset, message: msg });
+            events.push(ProcessedEvent::Instant {
+                sample_offset,
+                message: msg,
+            });
             return;
         }
 
@@ -633,12 +695,10 @@ impl Fugue {
                 Some(r) if r.channel == channel && r.cc == cc => {
                     matched = Some(idx);
                 }
-                Some(r) => {
-                    match oldest {
-                        Some((_, best)) if r.start_beat >= best => {}
-                        _ => oldest = Some((idx, r.start_beat)),
-                    }
-                }
+                Some(r) => match oldest {
+                    Some((_, best)) if r.start_beat >= best => {}
+                    _ => oldest = Some((idx, r.start_beat)),
+                },
                 None if first_free.is_none() => first_free = Some(idx),
                 None => {}
             }
@@ -654,7 +714,12 @@ impl Fugue {
     fn find_previous_cc_beat(&self, channel: u8, cc: u8, current_beat_offset: f64) -> f64 {
         for i in (0..self.next_event_index).rev() {
             let event = &self.definition.events[i];
-            if let FugueEvent::Cc { channel: ch, controller: c, .. } = &event.event {
+            if let FugueEvent::Cc {
+                channel: ch,
+                controller: c,
+                ..
+            } = &event.event
+            {
                 if *ch == channel && *c == cc && event.beat_offset < current_beat_offset {
                     return event.beat_offset;
                 }
@@ -676,7 +741,9 @@ impl Fugue {
         // a ramp finishes within this buffer. Linear scan over
         // MAX_ACTIVE_RAMPS is cheap.
         for i in 0..self.active_ramps.len() {
-            let Some(ramp) = self.active_ramps[i] else { continue };
+            let Some(ramp) = self.active_ramps[i] else {
+                continue;
+            };
 
             // Check if ramp overlaps with current buffer
             if ramp.end_beat <= current_beat {
@@ -716,12 +783,8 @@ impl Fugue {
                 t_start,
                 ramp.interpolation,
             );
-            let end_value = interpolate_value(
-                ramp.start_value,
-                ramp.end_value,
-                t_end,
-                ramp.interpolation,
-            );
+            let end_value =
+                interpolate_value(ramp.start_value, ramp.end_value, t_end, ramp.interpolation);
 
             events.push(ProcessedEvent::CcRamp {
                 channel: ramp.channel,

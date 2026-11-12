@@ -42,7 +42,9 @@ impl<'a> PluginNotePortsImpl for DropletMainThread<'a> {
                 writer.set(&NotePortInfo {
                     id: ClapId::new(1),
                     name: b"MIDI In",
-                    supported_dialects: NoteDialects::CLAP | NoteDialects::MIDI | NoteDialects::MIDI2,
+                    supported_dialects: NoteDialects::CLAP
+                        | NoteDialects::MIDI
+                        | NoteDialects::MIDI2,
                     preferred_dialect: Some(NoteDialect::Midi),
                 });
             } else {
@@ -51,7 +53,9 @@ impl<'a> PluginNotePortsImpl for DropletMainThread<'a> {
                 writer.set(&NotePortInfo {
                     id: ClapId::new(2),
                     name: b"MIDI Out",
-                    supported_dialects: NoteDialects::CLAP | NoteDialects::MIDI | NoteDialects::MIDI2,
+                    supported_dialects: NoteDialects::CLAP
+                        | NoteDialects::MIDI
+                        | NoteDialects::MIDI2,
                     preferred_dialect: Some(NoteDialect::Midi),
                 });
             }

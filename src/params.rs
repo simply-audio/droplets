@@ -11,7 +11,7 @@
 //! MIDI output through a separate ring buffer, not by reading these slots
 //! directly — so the lock overhead is fine.
 
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::{Arc, RwLock};
 
 /// Atomic f64 storage for real-time safe value access
@@ -63,7 +63,11 @@ impl CcSlot {
 
     pub fn get_cc(&self) -> Option<u8> {
         let cc = self.cc_number.load(Ordering::Relaxed);
-        if cc < 128 { Some(cc) } else { None }
+        if cc < 128 {
+            Some(cc)
+        } else {
+            None
+        }
     }
 
     pub fn set_cc(&self, cc: u8) {

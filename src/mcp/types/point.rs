@@ -177,15 +177,13 @@ mod tests {
 
     #[test]
     fn per_note_point_object_form_fails() {
-        let err: Result<Point, _> =
-            serde_json::from_str(r#"{"beat": 0, "value": 1}"#);
+        let err: Result<Point, _> = serde_json::from_str(r#"{"beat": 0, "value": 1}"#);
         assert!(err.is_err(), "object form should not deserialize");
     }
 
     #[test]
     fn per_note_point_trajectory_parses() {
-        let pts: Vec<Point> =
-            serde_json::from_str(r#"[[0,0],[2,1,"exp"],[4,0,"log"]]"#).unwrap();
+        let pts: Vec<Point> = serde_json::from_str(r#"[[0,0],[2,1,"exp"],[4,0,"log"]]"#).unwrap();
         assert_eq!(pts.len(), 3);
         assert!(pts[0].curve.is_none());
         assert_eq!(pts[1].curve.as_deref(), Some("exp"));
@@ -206,14 +204,22 @@ mod tests {
 
     #[test]
     fn per_note_point_serialize_two_tuple() {
-        let p = Point { beat: 1.0, value: 0.5, curve: None };
+        let p = Point {
+            beat: 1.0,
+            value: 0.5,
+            curve: None,
+        };
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(json, "[1.0,0.5]");
     }
 
     #[test]
     fn per_note_point_serialize_three_tuple() {
-        let p = Point { beat: 1.0, value: 0.5, curve: Some("exp".into()) };
+        let p = Point {
+            beat: 1.0,
+            value: 0.5,
+            curve: Some("exp".into()),
+        };
         let json = serde_json::to_string(&p).unwrap();
         assert_eq!(json, "[1.0,0.5,\"exp\"]");
     }

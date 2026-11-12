@@ -1,6 +1,6 @@
 pub mod api;
-pub mod drag;
 mod dpi;
+pub mod drag;
 // The `gui` module shares the name of its parent because it exports the main
 // types (`DropletGui`, size constants) that define what "GUI" means to this
 // plugin, while the parent module organizes related GUI subsystems (api,

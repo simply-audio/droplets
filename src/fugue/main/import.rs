@@ -38,8 +38,8 @@ use std::collections::HashMap;
 use midly::{MetaMessage, MidiMessage, Smf, Timing, TrackEventKind};
 
 use super::super::types::{
-    CancelMode, FugueDefinition, InterpolationMode, LoopMode, QuantizeMode, TimedFugueEvent,
-    TimedFugueEventExt, generate_fugue_id,
+    generate_fugue_id, CancelMode, FugueDefinition, InterpolationMode, LoopMode, QuantizeMode,
+    TimedFugueEvent, TimedFugueEventExt,
 };
 
 /// Caller-provided knobs controlling how the imported MIDI is turned into
@@ -120,9 +120,7 @@ impl ImportedMidi {
         let ppq_u16 = match smf.header.timing {
             Timing::Metrical(n) => n.as_int(),
             Timing::Timecode(_, _) => {
-                return Err(
-                    "SMPTE-timed MIDI files are not supported (only PPQ/metrical)".into(),
-                );
+                return Err("SMPTE-timed MIDI files are not supported (only PPQ/metrical)".into());
             }
         };
         if ppq_u16 == 0 {
@@ -137,7 +135,10 @@ impl ImportedMidi {
                 tracks.push(parsed);
             }
         }
-        Ok(ImportedMidi { ppq: ppq_u16, tracks })
+        Ok(ImportedMidi {
+            ppq: ppq_u16,
+            tracks,
+        })
     }
 
     /// Attach fugue-level policy (loop, quantize, cancel, tag prefix) and
@@ -332,11 +333,7 @@ fn close_note(
         if let Some((onset_beat, velocity)) = bucket.pop() {
             let duration = (off_beat - onset_beat).max(0.0);
             events.push(TimedFugueEvent::timed_note(
-                onset_beat,
-                channel,
-                note,
-                velocity,
-                duration,
+                onset_beat, channel, note, velocity, duration,
             ));
             if bucket.is_empty() {
                 active.remove(&(channel, note));
@@ -468,20 +465,29 @@ mod tests {
     #[test]
     fn synthetic_tag_when_track_name_missing() {
         // Hand-craft an SMF with one track that has a note but no TrackName.
-        use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
+        use midly::{
+            num::{u15, u28, u4, u7},
+            Format, Header, Track, TrackEvent,
+        };
         let track: Track = vec![
             TrackEvent {
                 delta: u28::new(0),
                 kind: TrackEventKind::Midi {
                     channel: u4::new(0),
-                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+                    message: MidiMessage::NoteOn {
+                        key: u7::new(60),
+                        vel: u7::new(100),
+                    },
                 },
             },
             TrackEvent {
                 delta: u28::new(480),
                 kind: TrackEventKind::Midi {
                     channel: u4::new(0),
-                    message: MidiMessage::NoteOff { key: u7::new(60), vel: u7::new(0) },
+                    message: MidiMessage::NoteOff {
+                        key: u7::new(60),
+                        vel: u7::new(0),
+                    },
                 },
             },
             TrackEvent {
@@ -491,7 +497,10 @@ mod tests {
         ];
 
         let smf = Smf {
-            header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
+            header: Header {
+                format: Format::SingleTrack,
+                timing: Timing::Metrical(u15::new(480)),
+            },
             tracks: vec![track],
         };
         let mut bytes = Vec::new();
@@ -506,20 +515,29 @@ mod tests {
     fn note_on_velocity_zero_treated_as_off() {
         // Many DAWs emit note-off as NoteOn vel=0 (running status). The
         // importer must pair that with the prior on and close the note.
-        use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
+        use midly::{
+            num::{u15, u28, u4, u7},
+            Format, Header, Track, TrackEvent,
+        };
         let track: Track = vec![
             TrackEvent {
                 delta: u28::new(0),
                 kind: TrackEventKind::Midi {
                     channel: u4::new(0),
-                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+                    message: MidiMessage::NoteOn {
+                        key: u7::new(60),
+                        vel: u7::new(100),
+                    },
                 },
             },
             TrackEvent {
                 delta: u28::new(480),
                 kind: TrackEventKind::Midi {
                     channel: u4::new(0),
-                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(0) },
+                    message: MidiMessage::NoteOn {
+                        key: u7::new(60),
+                        vel: u7::new(0),
+                    },
                 },
             },
             TrackEvent {
@@ -529,7 +547,10 @@ mod tests {
         ];
 
         let smf = Smf {
-            header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
+            header: Header {
+                format: Format::SingleTrack,
+                timing: Timing::Metrical(u15::new(480)),
+            },
             tracks: vec![track],
         };
         let mut bytes = Vec::new();
@@ -546,13 +567,19 @@ mod tests {
         // Note-on without matching off should still produce a balanced
         // on/off pair, closed at end-of-track, so the fugue doesn't leave
         // stuck notes in the scheduler.
-        use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
+        use midly::{
+            num::{u15, u28, u4, u7},
+            Format, Header, Track, TrackEvent,
+        };
         let track: Track = vec![
             TrackEvent {
                 delta: u28::new(0),
                 kind: TrackEventKind::Midi {
                     channel: u4::new(0),
-                    message: MidiMessage::NoteOn { key: u7::new(60), vel: u7::new(100) },
+                    message: MidiMessage::NoteOn {
+                        key: u7::new(60),
+                        vel: u7::new(100),
+                    },
                 },
             },
             TrackEvent {
@@ -562,7 +589,10 @@ mod tests {
         ];
 
         let smf = Smf {
-            header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
+            header: Header {
+                format: Format::SingleTrack,
+                timing: Timing::Metrical(u15::new(480)),
+            },
             tracks: vec![track],
         };
         let mut bytes = Vec::new();
@@ -574,17 +604,26 @@ mod tests {
         assert_eq!(off, 1);
         // The emitted TimedNote should close at end-of-track (960/480 = 2.0)
         // — i.e. duration = 2.0 beats, since the NoteOn was at beat 0.
-        let (onset, duration) = imported[0].events.iter().find_map(|e| match e.event {
-            FugueEvent::TimedNote { duration_beats, .. } => Some((e.beat_offset, duration_beats)),
-            _ => None,
-        }).expect("dangling NoteOn should have been closed as a TimedNote");
+        let (onset, duration) = imported[0]
+            .events
+            .iter()
+            .find_map(|e| match e.event {
+                FugueEvent::TimedNote { duration_beats, .. } => {
+                    Some((e.beat_offset, duration_beats))
+                }
+                _ => None,
+            })
+            .expect("dangling NoteOn should have been closed as a TimedNote");
         assert!((onset - 0.0).abs() < 1e-6);
         assert!((duration - 2.0).abs() < 1e-6);
     }
 
     #[test]
     fn cc_passthrough() {
-        use midly::{Format, Header, Track, TrackEvent, num::{u15, u28, u4, u7}};
+        use midly::{
+            num::{u15, u28, u4, u7},
+            Format, Header, Track, TrackEvent,
+        };
         let mut track: Track = Vec::new();
         for (delta, val) in [(0u32, 0u8), (120, 64), (120, 127)] {
             track.push(TrackEvent {
@@ -604,29 +643,43 @@ mod tests {
         });
 
         let smf = Smf {
-            header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
+            header: Header {
+                format: Format::SingleTrack,
+                timing: Timing::Metrical(u15::new(480)),
+            },
             tracks: vec![track],
         };
         let mut bytes = Vec::new();
         smf.write_std(&mut bytes).unwrap();
 
         let imported = smf_to_fugues(&bytes, &ImportOptions::default()).unwrap();
-        let cc_events: Vec<_> = imported[0].events.iter().filter_map(|e| match e.event {
-            FugueEvent::Cc { controller, value, .. } => Some((controller, value)),
-            _ => None,
-        }).collect();
+        let cc_events: Vec<_> = imported[0]
+            .events
+            .iter()
+            .filter_map(|e| match e.event {
+                FugueEvent::Cc {
+                    controller, value, ..
+                } => Some((controller, value)),
+                _ => None,
+            })
+            .collect();
         assert_eq!(cc_events, vec![(74, 0), (74, 64), (74, 127)]);
     }
 
     #[test]
     fn strict_mode_rejects_pitch_bend() {
-        use midly::{Format, Header, PitchBend, Track, TrackEvent, num::{u14, u15, u28, u4}};
+        use midly::{
+            num::{u14, u15, u28, u4},
+            Format, Header, PitchBend, Track, TrackEvent,
+        };
         let track: Track = vec![
             TrackEvent {
                 delta: u28::new(0),
                 kind: TrackEventKind::Midi {
                     channel: u4::new(0),
-                    message: MidiMessage::PitchBend { bend: PitchBend(u14::new(8192)) },
+                    message: MidiMessage::PitchBend {
+                        bend: PitchBend(u14::new(8192)),
+                    },
                 },
             },
             TrackEvent {
@@ -636,13 +689,19 @@ mod tests {
         ];
 
         let smf = Smf {
-            header: Header { format: Format::SingleTrack, timing: Timing::Metrical(u15::new(480)) },
+            header: Header {
+                format: Format::SingleTrack,
+                timing: Timing::Metrical(u15::new(480)),
+            },
             tracks: vec![track],
         };
         let mut bytes = Vec::new();
         smf.write_std(&mut bytes).unwrap();
 
-        let opts = ImportOptions { strict: true, ..Default::default() };
+        let opts = ImportOptions {
+            strict: true,
+            ..Default::default()
+        };
         assert!(smf_to_fugues(&bytes, &opts).is_err());
 
         // Non-strict: the pitch bend is dropped and the track becomes empty,
@@ -673,11 +732,17 @@ mod tests {
         assert_eq!(parsed.tracks[0].name.as_deref(), Some("bass"));
 
         // Re-convert the same intermediate twice with different policies.
-        let opts_a = ImportOptions { tag_prefix: Some("a-".into()), ..Default::default() };
+        let opts_a = ImportOptions {
+            tag_prefix: Some("a-".into()),
+            ..Default::default()
+        };
         let fugues_a = parsed.clone().into_fugues(&opts_a);
         assert_eq!(fugues_a[0].tag.as_deref(), Some("a-bass"));
 
-        let opts_b = ImportOptions { loop_mode: LoopMode::Once, ..Default::default() };
+        let opts_b = ImportOptions {
+            loop_mode: LoopMode::Once,
+            ..Default::default()
+        };
         let fugues_b = parsed.into_fugues(&opts_b);
         assert_eq!(fugues_b[0].loop_mode, LoopMode::Once);
         assert_eq!(fugues_b[0].tag.as_deref(), Some("bass"));
@@ -750,9 +815,12 @@ mod tests {
             .events
             .iter()
             .filter_map(|e| match e.event {
-                FugueEvent::TimedNote { channel, note, velocity, duration_beats } => {
-                    Some((e.beat_offset, channel, note, velocity, duration_beats))
-                }
+                FugueEvent::TimedNote {
+                    channel,
+                    note,
+                    velocity,
+                    duration_beats,
+                } => Some((e.beat_offset, channel, note, velocity, duration_beats)),
                 _ => None,
             })
             .collect();
@@ -766,10 +834,12 @@ mod tests {
         let raw_note_events = got
             .events
             .iter()
-            .filter(|e| matches!(
-                e.event,
-                FugueEvent::NoteOn { .. } | FugueEvent::NoteOff { .. }
-            ))
+            .filter(|e| {
+                matches!(
+                    e.event,
+                    FugueEvent::NoteOn { .. } | FugueEvent::NoteOff { .. }
+                )
+            })
             .count();
         assert_eq!(
             raw_note_events, 0,
@@ -786,11 +856,23 @@ mod tests {
         ];
         for (i, (got_beat, got_ch, got_note, got_vel, got_dur)) in timed_notes.iter().enumerate() {
             let (exp_beat, exp_ch, exp_note, exp_vel, exp_dur) = expected[i];
-            assert!((got_beat - exp_beat).abs() < 1e-6, "note {}: beat {:.6} vs {:.6}", i, got_beat, exp_beat);
+            assert!(
+                (got_beat - exp_beat).abs() < 1e-6,
+                "note {}: beat {:.6} vs {:.6}",
+                i,
+                got_beat,
+                exp_beat
+            );
             assert_eq!(*got_ch, exp_ch, "note {}: channel", i);
             assert_eq!(*got_note, exp_note, "note {}: pitch", i);
             assert_eq!(*got_vel, exp_vel, "note {}: velocity", i);
-            assert!((got_dur - exp_dur).abs() < 1e-6, "note {}: duration {:.6} vs {:.6}", i, got_dur, exp_dur);
+            assert!(
+                (got_dur - exp_dur).abs() < 1e-6,
+                "note {}: duration {:.6} vs {:.6}",
+                i,
+                got_dur,
+                exp_dur
+            );
         }
     }
 
@@ -819,9 +901,11 @@ mod tests {
             .events
             .iter()
             .filter_map(|e| match e.event {
-                FugueEvent::TimedNote { velocity, duration_beats, .. } => {
-                    Some((e.beat_offset, velocity, duration_beats))
-                }
+                FugueEvent::TimedNote {
+                    velocity,
+                    duration_beats,
+                    ..
+                } => Some((e.beat_offset, velocity, duration_beats)),
                 _ => None,
             })
             .collect();

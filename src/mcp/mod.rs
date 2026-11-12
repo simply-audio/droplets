@@ -20,24 +20,26 @@
 
 mod bridge;
 pub mod project;
-pub mod types;
 mod server;
+pub mod types;
 
-pub use bridge::{ActivityEvent, CcBridge, CcMessage, MidiMessage, NoteMessage, PerNoteExpressionMessage, PerNoteExpressionType};
+pub use bridge::{
+    ActivityEvent, CcBridge, CcMessage, MidiMessage, NoteMessage, PerNoteExpressionMessage,
+    PerNoteExpressionType,
+};
 pub use server::DropletsMcp;
 
-use rmcp::transport::streamable_http_server::{
-    StreamableHttpService, StreamableHttpServerConfig,
-    session::local::LocalSessionManager,
-};
 use axum::{
-    Router,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     http::StatusCode,
     response::IntoResponse,
+    Router,
 };
-use std::sync::{Arc, OnceLock};
+use rmcp::transport::streamable_http_server::{
+    session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
+};
 use std::net::SocketAddr;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::broadcast;
 
 /// Singleton flag to ensure only one server starts
@@ -94,7 +96,10 @@ pub fn start_server(port: u16) {
 async fn run_server(port: u16) {
     let v4_addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
     let v6_addr: SocketAddr = format!("[::1]:{}", port).parse().unwrap();
-    log::info!("MCP server starting on http://{}/mcp (+ IPv6 loopback)", v4_addr);
+    log::info!(
+        "MCP server starting on http://{}/mcp (+ IPv6 loopback)",
+        v4_addr
+    );
 
     // Create session manager for stateful connections
     let session_manager = Arc::new(LocalSessionManager::default());
@@ -115,38 +120,43 @@ async fn run_server(port: u16) {
     };
     log::debug!("MCP: Created config with stateful_mode=true");
 
-    let mcp_service = StreamableHttpService::new(
-        || {
-            Ok(DropletsMcp::new())
-        },
-        session_manager,
-        config,
-    );
+    let mcp_service =
+        StreamableHttpService::new(|| Ok(DropletsMcp::new()), session_manager, config);
 
     // Build the axum router with logging
     let app = Router::new()
-        .route("/mcp", axum::routing::any(move |req: axum::http::Request<axum::body::Body>| {
-            let service = mcp_service.clone();
-            async move {
-                service.handle(req).await
-            }
-        }))
+        .route(
+            "/mcp",
+            axum::routing::any(move |req: axum::http::Request<axum::body::Body>| {
+                let service = mcp_service.clone();
+                async move { service.handle(req).await }
+            }),
+        )
         // Host controller extensions (Bitwig, Ableton) push project state here.
         // Treated as trusted local traffic — no auth because the server binds
         // only to 127.0.0.1.
-        .route("/project_layout", axum::routing::post(handle_project_layout))
+        .route(
+            "/project_layout",
+            axum::routing::post(handle_project_layout),
+        )
         // Extensions also POST /rename_instance on first sight of a Droplets
         // device so the plugin instance name matches the DAW track name.
         // Same semantics as the GUI server's /api/rename_instance — just
         // mirrored here so the extension only needs to know port 9999.
-        .route("/rename_instance", axum::routing::post(handle_rename_instance))
+        .route(
+            "/rename_instance",
+            axum::routing::post(handle_rename_instance),
+        )
         // WebSocket stream of ControllerCommands for the host extension.
         // v1 emits nothing; the endpoint exists so the extension can
         // establish its side of the pipe and so future MCP tools can enqueue
         // commands without a protocol change.
         .route("/ws/controller", axum::routing::any(handle_controller_ws));
 
-    log::info!("MCP server listening on http://{}/mcp (+ IPv6 loopback)", v4_addr);
+    log::info!(
+        "MCP server listening on http://{}/mcp (+ IPv6 loopback)",
+        v4_addr
+    );
 
     // Bind IPv4 loopback — required, the primary address and what
     // the MCP config points at via `localhost:9999`.
@@ -176,7 +186,8 @@ async fn run_server(port: u16) {
                 "MCP: IPv6 bind on {} failed: {}. Continuing on IPv4 only — \
                  clients that resolve localhost to ::1 without falling back to \
                  127.0.0.1 may report 'Connection refused'.",
-                v6_addr, e
+                v6_addr,
+                e
             );
             None
         }
@@ -287,7 +298,9 @@ async fn handle_rename_instance(body: axum::body::Bytes) -> impl IntoResponse {
         Ok(old) => {
             log::info!(
                 "rename_instance: '{}' -> '{}' (was '{}')",
-                req.instance, req.name, old
+                req.instance,
+                req.name,
+                old
             );
             (StatusCode::OK, "ok").into_response()
         }
@@ -298,9 +311,7 @@ async fn handle_rename_instance(body: axum::body::Bytes) -> impl IntoResponse {
     }
 }
 
-async fn handle_project_layout(
-    body: axum::body::Bytes,
-) -> impl IntoResponse {
+async fn handle_project_layout(body: axum::body::Bytes) -> impl IntoResponse {
     match serde_json::from_slice::<project::ProjectLayout>(&body) {
         Ok(layout) => {
             CcBridge::set_project_layout(layout.clone());

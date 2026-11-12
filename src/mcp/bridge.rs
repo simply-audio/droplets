@@ -14,32 +14,42 @@ use crate::params::DropletParams;
 /// A MIDI CC message
 #[derive(Clone, Copy, Debug)]
 pub struct CcMessage {
-    pub channel: u8,  // 0-15
-    pub cc: u8,       // 0-127
-    pub value: u8,    // 0-127 (MIDI 1.0 7-bit)
+    pub channel: u8,              // 0-15
+    pub cc: u8,                   // 0-127
+    pub value: u8,                // 0-127 (MIDI 1.0 7-bit)
     pub value_14bit: Option<u16>, // MIDI 2.0: 0-16383 for high-res CC
 }
 
 impl CcMessage {
     /// Create a standard 7-bit CC message
     pub fn new(channel: u8, cc: u8, value: u8) -> Self {
-        Self { channel, cc, value, value_14bit: None }
+        Self {
+            channel,
+            cc,
+            value,
+            value_14bit: None,
+        }
     }
 
     /// Create a high-resolution 14-bit CC message (MIDI 2.0)
     pub fn new_hires(channel: u8, cc: u8, value_14bit: u16) -> Self {
         // Scale 14-bit to 7-bit for MIDI 1.0 fallback
         let value = (value_14bit >> 7) as u8;
-        Self { channel, cc, value, value_14bit: Some(value_14bit) }
+        Self {
+            channel,
+            cc,
+            value,
+            value_14bit: Some(value_14bit),
+        }
     }
 }
 
 /// A MIDI Note message (Note On or Note Off)
 #[derive(Clone, Copy, Debug)]
 pub struct NoteMessage {
-    pub channel: u8,     // 0-15
-    pub note: u8,        // 0-127 (MIDI note number, 60 = C4)
-    pub velocity: u8,    // 0-127 (MIDI 1.0 7-bit)
+    pub channel: u8,         // 0-15
+    pub note: u8,            // 0-127 (MIDI note number, 60 = C4)
+    pub velocity: u8,        // 0-127 (MIDI 1.0 7-bit)
     pub velocity_16bit: u16, // MIDI 2.0: 0-65535 for 16-bit velocity
     pub is_note_on: bool,
 }
@@ -49,14 +59,26 @@ impl NoteMessage {
     pub fn new(channel: u8, note: u8, velocity: u8, is_note_on: bool) -> Self {
         // Scale 7-bit to 16-bit: multiply by 512 (shift left 9) + copy MSBs
         let velocity_16bit = ((velocity as u16) << 9) | ((velocity as u16) << 2);
-        Self { channel, note, velocity, velocity_16bit, is_note_on }
+        Self {
+            channel,
+            note,
+            velocity,
+            velocity_16bit,
+            is_note_on,
+        }
     }
 
     /// Create a note message with 16-bit velocity (MIDI 2.0 native)
     pub fn new_hires(channel: u8, note: u8, velocity_16bit: u16, is_note_on: bool) -> Self {
         // Scale 16-bit to 7-bit for MIDI 1.0 fallback
         let velocity = (velocity_16bit >> 9) as u8;
-        Self { channel, note, velocity, velocity_16bit, is_note_on }
+        Self {
+            channel,
+            note,
+            velocity,
+            velocity_16bit,
+            is_note_on,
+        }
     }
 }
 
@@ -64,8 +86,8 @@ impl NoteMessage {
 /// These are expressions that target a specific note that is currently playing
 #[derive(Clone, Copy, Debug)]
 pub struct PerNoteExpressionMessage {
-    pub channel: u8,           // 0-15
-    pub note: u8,              // 0-127 (note number to target)
+    pub channel: u8, // 0-15
+    pub note: u8,    // 0-127 (note number to target)
     pub expression_type: PerNoteExpressionType,
 }
 
@@ -164,10 +186,10 @@ pub struct ActivityEvent {
     pub timestamp_ms: u64,
     pub instance: String,
     pub channel: u8,
-    pub cc: Option<u8>,       // CC number (for CC messages)
-    pub value: u8,            // CC value or velocity
-    pub note: Option<u8>,     // Note number (for note messages)
-    pub is_note_on: Option<bool>, // true = note on, false = note off
+    pub cc: Option<u8>,                  // CC number (for CC messages)
+    pub value: u8,                       // CC value or velocity
+    pub note: Option<u8>,                // Note number (for note messages)
+    pub is_note_on: Option<bool>,        // true = note on, false = note off
     pub expression_type: Option<String>, // Per-note expression type (pitch_bend, pressure, etc.)
 }
 
@@ -236,8 +258,7 @@ impl CcBridge {
     /// Unregister a plugin instance
     pub fn unregister(id: &str) {
         let mut reg = registry().write().unwrap();
-        if reg.remove(id).is_some() {
-        }
+        if reg.remove(id).is_some() {}
     }
 
     /// Send a CC message to an instance (called from MCP server thread)
@@ -250,7 +271,10 @@ impl CcBridge {
         let instance_name = entry.name.clone();
 
         // Lock the producer and push (brief lock, not on audio thread)
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
             .push(MidiMessage::Cc(msg))
             .map_err(|_| "Queue full - audio thread not consuming fast enough")?;
@@ -267,7 +291,10 @@ impl CcBridge {
         let entry = Self::find_entry(&reg, instance)?;
         let instance_name = entry.name.clone();
 
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
             .push(MidiMessage::Note(msg))
             .map_err(|_| "Queue full - audio thread not consuming fast enough")?;
@@ -279,12 +306,18 @@ impl CcBridge {
 
     /// Send a per-note expression message to an instance (called from MCP server thread)
     /// These are MIDI 2.0 only - they target specific notes that are currently playing
-    pub fn send_per_note_expression(instance: &str, msg: PerNoteExpressionMessage) -> Result<(), &'static str> {
+    pub fn send_per_note_expression(
+        instance: &str,
+        msg: PerNoteExpressionMessage,
+    ) -> Result<(), &'static str> {
         let reg = registry().read().unwrap();
         let entry = Self::find_entry(&reg, instance)?;
         let instance_name = entry.name.clone();
 
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
             .push(MidiMessage::PerNoteExpression(msg))
             .map_err(|_| "Queue full - audio thread not consuming fast enough")?;
@@ -479,8 +512,13 @@ impl CcBridge {
         if let Some((channel, cc, midi_value)) = entry.params.set_slot_value(slot, value) {
             // Send MIDI CC through the ring buffer
             let msg = CcMessage::new(channel, cc, midi_value);
-            let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
-            producer.push(MidiMessage::Cc(msg)).map_err(|_| "Queue full")?;
+            let mut producer = entry
+                .producer
+                .lock()
+                .map_err(|_| "Producer lock poisoned")?;
+            producer
+                .push(MidiMessage::Cc(msg))
+                .map_err(|_| "Queue full")?;
 
             Self::log_cc_activity(&entry.name, &msg);
         }
@@ -564,7 +602,9 @@ impl CcBridge {
         let entry = Self::find_entry(&reg, instance)?;
 
         let slot_ref = entry.params.get(slot).ok_or("Slot index out of range")?;
-        slot_ref.cc_number.store(255, std::sync::atomic::Ordering::Relaxed);
+        slot_ref
+            .cc_number
+            .store(255, std::sync::atomic::Ordering::Relaxed);
         Ok(())
     }
 
@@ -586,10 +626,7 @@ impl CcBridge {
     }
 
     /// Find an instance ID by name or ID
-    fn find_id(
-        reg: &HashMap<String, InstanceEntry>,
-        name: &str,
-    ) -> Result<String, &'static str> {
+    fn find_id(reg: &HashMap<String, InstanceEntry>, name: &str) -> Result<String, &'static str> {
         if name == "default" {
             reg.keys().next().cloned().ok_or("No instances connected")
         } else {

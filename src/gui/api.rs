@@ -7,11 +7,11 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::fugue::{
-    CancelMode, FugueBridge, FugueDefinition, FugueInfo, InterpolationMode, LoopMode, QuantizeMode,
-    TimedFugueEvent, TransportState,
     export::{fugue_to_smf, generate_filename},
     import::{smf_to_fugues, ImportOptions},
     settings::{self, SettingsResponse, UpdateSettingsRequest},
+    CancelMode, FugueBridge, FugueDefinition, FugueInfo, InterpolationMode, LoopMode, QuantizeMode,
+    TimedFugueEvent, TransportState,
 };
 use crate::mcp::CcBridge;
 use crate::params;
@@ -202,14 +202,20 @@ pub fn rename_instance(instance: &str, new_name: &str) -> Result<OkResponse, Str
 /// Start learning mode for a slot
 pub fn start_learn(instance: &str, slot: usize) -> Result<OkResponse, String> {
     CcBridge::start_learn(instance, slot)
-        .map(|_| OkResponse { ok: true, message: None })
+        .map(|_| OkResponse {
+            ok: true,
+            message: None,
+        })
         .map_err(|e| e.to_string())
 }
 
 /// Cancel learning mode
 pub fn cancel_learn(instance: &str) -> Result<OkResponse, String> {
     CcBridge::cancel_learn(instance)
-        .map(|_| OkResponse { ok: true, message: None })
+        .map(|_| OkResponse {
+            ok: true,
+            message: None,
+        })
         .map_err(|e| e.to_string())
 }
 
@@ -222,7 +228,9 @@ pub fn wiggle_slot(instance: &str, slot: usize) -> Result<OkResponse, String> {
         .find(|s| s.index == slot)
         .ok_or_else(|| "slot not found".to_string())?;
 
-    let cc = slot_info.cc.ok_or_else(|| "slot not mapped to CC".to_string())?;
+    let cc = slot_info
+        .cc
+        .ok_or_else(|| "slot not mapped to CC".to_string())?;
     let channel = slot_info.channel;
     let instance_owned = instance.to_string();
 
@@ -249,7 +257,10 @@ pub fn wiggle_slot(instance: &str, slot: usize) -> Result<OkResponse, String> {
 pub fn note_on(instance: &str, note: u8, velocity: u8) -> Result<OkResponse, String> {
     let msg = crate::mcp::NoteMessage::new(0, note.min(127), velocity.min(127), true);
     CcBridge::send_note(instance, msg)
-        .map(|_| OkResponse { ok: true, message: None })
+        .map(|_| OkResponse {
+            ok: true,
+            message: None,
+        })
         .map_err(|e| e.to_string())
 }
 
@@ -257,7 +268,10 @@ pub fn note_on(instance: &str, note: u8, velocity: u8) -> Result<OkResponse, Str
 pub fn note_off(instance: &str, note: u8) -> Result<OkResponse, String> {
     let msg = crate::mcp::NoteMessage::new(0, note.min(127), 0, false);
     CcBridge::send_note(instance, msg)
-        .map(|_| OkResponse { ok: true, message: None })
+        .map(|_| OkResponse {
+            ok: true,
+            message: None,
+        })
         .map_err(|e| e.to_string())
 }
 
@@ -575,11 +589,19 @@ pub struct ImportFugueResponse {
 /// their returned ids if desired.
 pub fn import_fugue(instance: &str, bytes: &[u8], query: ImportFugueQuery) -> ImportFugueResponse {
     let mut opts = ImportOptions::default();
-    if let Some(lm) = query.loop_mode { opts.loop_mode = lm; }
-    if let Some(q) = query.quantize { opts.quantize = q; }
-    if let Some(cm) = query.cancel_mode { opts.cancel_mode = cm; }
+    if let Some(lm) = query.loop_mode {
+        opts.loop_mode = lm;
+    }
+    if let Some(q) = query.quantize {
+        opts.quantize = q;
+    }
+    if let Some(cm) = query.cancel_mode {
+        opts.cancel_mode = cm;
+    }
     opts.tag_prefix = query.tag_prefix;
-    if let Some(s) = query.strict { opts.strict = s; }
+    if let Some(s) = query.strict {
+        opts.strict = s;
+    }
 
     let fugues = match smf_to_fugues(bytes, &opts) {
         Ok(f) => f,

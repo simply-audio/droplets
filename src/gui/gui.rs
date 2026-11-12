@@ -57,7 +57,8 @@ impl DropletGui {
         if !should_send {
             return;
         }
-        self.last_transport.insert(instance_id.to_string(), *transport);
+        self.last_transport
+            .insert(instance_id.to_string(), *transport);
 
         if let Some(webview) = &self.web_view {
             let js = format!(
@@ -74,7 +75,12 @@ impl DropletGui {
 
     /// Push fugue updates to the webview via IPC for one instance.
     /// Tagged with `instance_id`; per-instance change detection.
-    pub fn push_fugues(&mut self, instance_id: &str, infos: &[FugueInfo], definitions: &[FugueDefinition]) {
+    pub fn push_fugues(
+        &mut self,
+        instance_id: &str,
+        infos: &[FugueInfo],
+        definitions: &[FugueDefinition],
+    ) {
         let current_ids: Vec<u64> = infos.iter().map(|f| f.id).collect();
         let current_waiting: Vec<bool> = infos.iter().map(|f| f.is_waiting).collect();
         let changed = self

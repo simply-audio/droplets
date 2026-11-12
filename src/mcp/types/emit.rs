@@ -43,7 +43,9 @@ pub fn expand_per_note_points(
     for i in 1..points.len() {
         let p0 = &points[i - 1];
         let p1 = &points[i];
-        let mode = p1.curve.as_deref()
+        let mode = p1
+            .curve
+            .as_deref()
             .map(|c| parse_interpolation_mode(Some(c)))
             .unwrap_or(default_mode);
         let segment_beats = p1.beat - p0.beat;
@@ -80,11 +82,7 @@ pub fn expand_per_note_points(
 ///   entirely (no NoteOn emitted). A single guard replaces the two
 ///   interacting guards we had before (emit-time drop + sample-level
 ///   left-skew).
-pub fn emit_notes(
-    notes: &[CompactNote],
-    fugue_channel: u8,
-    events: &mut Vec<TimedFugueEvent>,
-) {
+pub fn emit_notes(notes: &[CompactNote], fugue_channel: u8, events: &mut Vec<TimedFugueEvent>) {
     for note in notes {
         let channel = note
             .channel
@@ -120,7 +118,9 @@ pub fn emit_cc_lane(
     let cc_num = cc_num.min(127);
     for point in points {
         let value = (point.value as u8).min(127);
-        let resolved = point.curve.as_deref()
+        let resolved = point
+            .curve
+            .as_deref()
             .map(|c| parse_interpolation_mode(Some(c)))
             .unwrap_or(lane_default_mode);
         events.push(TimedFugueEvent::new(
@@ -197,7 +197,11 @@ mod tests {
     }
 
     fn pt(beat: f64, value: f64, curve: Option<&str>) -> Point {
-        Point { beat, value, curve: curve.map(|s| s.to_string()) }
+        Point {
+            beat,
+            value,
+            curve: curve.map(|s| s.to_string()),
+        }
     }
 
     #[test]
@@ -292,12 +296,14 @@ mod tests {
         let at_beat_1 = out.iter().find(|(b, _)| (b - 1.0).abs() < 1e-6).unwrap();
         assert!(
             (at_beat_1.1 - 0.25).abs() < 1e-6,
-            "exp midpoint of 0→1 should be 0.25, got {}", at_beat_1.1
+            "exp midpoint of 0→1 should be 0.25, got {}",
+            at_beat_1.1
         );
         let at_beat_3 = out.iter().find(|(b, _)| (b - 3.0).abs() < 1e-6).unwrap();
         assert!(
             (at_beat_3.1 - 0.25).abs() < 1e-6,
-            "log midpoint of 1→0 should be 0.25 (fast fall early), got {}", at_beat_3.1
+            "log midpoint of 1→0 should be 0.25 (fast fall early), got {}",
+            at_beat_3.1
         );
     }
 
@@ -319,7 +325,10 @@ mod tests {
     fn expand_first_point_curve_is_ignored() {
         let without = [pt(0.0, 0.0, None), pt(1.0, 1.0, Some("linear"))];
         let with_first_curve = [pt(0.0, 0.0, Some("exp")), pt(1.0, 1.0, Some("linear"))];
-        assert_eq!(collect_expansion(&without), collect_expansion(&with_first_curve));
+        assert_eq!(
+            collect_expansion(&without),
+            collect_expansion(&with_first_curve)
+        );
     }
 
     #[test]
@@ -359,7 +368,12 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].beat_offset, 0.0);
         match events[0].event {
-            FugueEvent::TimedNote { note, duration_beats, velocity, .. } => {
+            FugueEvent::TimedNote {
+                note,
+                duration_beats,
+                velocity,
+                ..
+            } => {
                 assert_eq!(note, 60);
                 assert_eq!(duration_beats, 1.0);
                 assert_eq!(velocity, 100);
@@ -377,8 +391,20 @@ mod tests {
         // (channel, pitch). The test just asserts both TimedNotes
         // make it through with their declared durations intact.
         let notes = vec![
-            CompactNote { beat: 1.0, note: Note(60), duration: 2.0, velocity: None, channel: None },
-            CompactNote { beat: 2.0, note: Note(60), duration: 1.0, velocity: None, channel: None },
+            CompactNote {
+                beat: 1.0,
+                note: Note(60),
+                duration: 2.0,
+                velocity: None,
+                channel: None,
+            },
+            CompactNote {
+                beat: 2.0,
+                note: Note(60),
+                duration: 1.0,
+                velocity: None,
+                channel: None,
+            },
         ];
         let mut events = Vec::new();
         emit_notes(&notes, 0, &mut events);
@@ -390,8 +416,16 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert!(durations.contains(&2.0), "A's original 2-beat duration: {:?}", durations);
-        assert!(durations.contains(&1.0), "B's 1-beat duration: {:?}", durations);
+        assert!(
+            durations.contains(&2.0),
+            "A's original 2-beat duration: {:?}",
+            durations
+        );
+        assert!(
+            durations.contains(&1.0),
+            "B's 1-beat duration: {:?}",
+            durations
+        );
     }
 
     #[test]
@@ -403,14 +437,32 @@ mod tests {
         // `definition_to_compact → queue_fugue` doesn't accidentally
         // strip them differently from the original run.
         let notes = vec![
-            CompactNote { beat: 0.0, note: Note(60), duration: 0.0, velocity: None, channel: None },
-            CompactNote { beat: 1.0, note: Note(62), duration: 1.0, velocity: None, channel: None },
+            CompactNote {
+                beat: 0.0,
+                note: Note(60),
+                duration: 0.0,
+                velocity: None,
+                channel: None,
+            },
+            CompactNote {
+                beat: 1.0,
+                note: Note(62),
+                duration: 1.0,
+                velocity: None,
+                channel: None,
+            },
         ];
         let mut events = Vec::new();
         emit_notes(&notes, 0, &mut events);
         assert_eq!(events.len(), 2);
-        assert!(matches!(events[0].event, FugueEvent::TimedNote { note: 60, .. }));
-        assert!(matches!(events[1].event, FugueEvent::TimedNote { note: 62, .. }));
+        assert!(matches!(
+            events[0].event,
+            FugueEvent::TimedNote { note: 60, .. }
+        ));
+        assert!(matches!(
+            events[1].event,
+            FugueEvent::TimedNote { note: 62, .. }
+        ));
     }
 
     #[test]
@@ -421,7 +473,7 @@ mod tests {
             note: Note(60),
             duration: 1.0,
             velocity: Some(100),
-            channel: Some(5),  // 1-indexed → channel 4 internally
+            channel: Some(5), // 1-indexed → channel 4 internally
         }];
         let mut events = Vec::new();
         emit_notes(&notes, 0, &mut events);
@@ -434,21 +486,37 @@ mod tests {
     #[test]
     fn emit_cc_lane_stamps_curve_on_every_event() {
         let points = vec![
-            Point { beat: 0.0, value: 0.0, curve: None },
-            Point { beat: 4.0, value: 127.0, curve: Some("exp".into()) },
+            Point {
+                beat: 0.0,
+                value: 0.0,
+                curve: None,
+            },
+            Point {
+                beat: 4.0,
+                value: 127.0,
+                curve: Some("exp".into()),
+            },
         ];
         let mut events = Vec::new();
         emit_cc_lane(74, &points, InterpolationMode::Log, 0, &mut events);
         assert_eq!(events.len(), 2);
         match events[0].event {
             FugueEvent::Cc { interpolation, .. } => {
-                assert_eq!(interpolation, InterpolationMode::Log, "bare point uses lane default");
+                assert_eq!(
+                    interpolation,
+                    InterpolationMode::Log,
+                    "bare point uses lane default"
+                );
             }
             _ => panic!("expected Cc"),
         }
         match events[1].event {
             FugueEvent::Cc { interpolation, .. } => {
-                assert_eq!(interpolation, InterpolationMode::Exp, "per-point curve wins");
+                assert_eq!(
+                    interpolation,
+                    InterpolationMode::Exp,
+                    "per-point curve wins"
+                );
             }
             _ => panic!("expected Cc"),
         }
@@ -457,13 +525,23 @@ mod tests {
     #[test]
     fn emit_cc_lane_clamps_value_and_cc_number() {
         let points = vec![
-            Point { beat: 0.0, value: 200.0, curve: None },
-            Point { beat: 1.0, value: -5.0, curve: None },
+            Point {
+                beat: 0.0,
+                value: 200.0,
+                curve: None,
+            },
+            Point {
+                beat: 1.0,
+                value: -5.0,
+                curve: None,
+            },
         ];
         let mut events = Vec::new();
         emit_cc_lane(200, &points, InterpolationMode::Linear, 0, &mut events);
         match events[0].event {
-            FugueEvent::Cc { controller, value, .. } => {
+            FugueEvent::Cc {
+                controller, value, ..
+            } => {
                 assert_eq!(controller, 127, "cc number clamped");
                 assert_eq!(value, 127, "value clamped");
             }
@@ -474,15 +552,25 @@ mod tests {
     #[test]
     fn emit_per_note_pitch_bend_expands_segments() {
         let points = vec![
-            Point { beat: 0.0, value: 0.0, curve: None },
-            Point { beat: 1.0, value: 2.0, curve: None },
+            Point {
+                beat: 0.0,
+                value: 0.0,
+                curve: None,
+            },
+            Point {
+                beat: 1.0,
+                value: 2.0,
+                curve: None,
+            },
         ];
         let mut events = Vec::new();
         emit_per_note_pitch_bend(60, &points, InterpolationMode::Linear, 0, &mut events);
         assert_eq!(events.len(), 33);
         let last = events.last().unwrap();
         match last.event {
-            FugueEvent::PerNotePitchBend { note, semitones, .. } => {
+            FugueEvent::PerNotePitchBend {
+                note, semitones, ..
+            } => {
                 assert_eq!(note, 60);
                 assert!((semitones - 2.0).abs() < 1e-5);
             }
@@ -493,15 +581,26 @@ mod tests {
     #[test]
     fn emit_per_note_pressure_clamps_to_unit_range() {
         let points = vec![
-            Point { beat: 0.0, value: -0.5, curve: None },
-            Point { beat: 1.0, value: 1.5, curve: None },
+            Point {
+                beat: 0.0,
+                value: -0.5,
+                curve: None,
+            },
+            Point {
+                beat: 1.0,
+                value: 1.5,
+                curve: None,
+            },
         ];
         let mut events = Vec::new();
         emit_per_note_pressure(60, &points, InterpolationMode::Linear, 0, &mut events);
         for e in &events {
             if let FugueEvent::PerNotePressure { pressure, .. } = e.event {
-                assert!((0.0..=1.0).contains(&pressure),
-                    "pressure {} out of range", pressure);
+                assert!(
+                    (0.0..=1.0).contains(&pressure),
+                    "pressure {} out of range",
+                    pressure
+                );
             }
         }
     }

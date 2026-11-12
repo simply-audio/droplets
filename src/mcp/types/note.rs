@@ -34,7 +34,9 @@ impl serde::Serialize for Note {
 }
 
 impl From<Note> for u8 {
-    fn from(n: Note) -> u8 { n.0 }
+    fn from(n: Note) -> u8 {
+        n.0
+    }
 }
 
 impl<'de> serde::Deserialize<'de> for Note {
@@ -67,7 +69,10 @@ impl<'de> serde::Deserialize<'de> for Note {
                 // Accept integer-valued floats (60.0) but reject fractional notes.
                 let n = v.trunc();
                 if (n - v).abs() > 1e-6 {
-                    Err(E::custom(format!("MIDI note must be an integer, got {}", v)))
+                    Err(E::custom(format!(
+                        "MIDI note must be an integer, got {}",
+                        v
+                    )))
                 } else {
                     self.visit_i64(n as i64)
                 }
@@ -78,7 +83,10 @@ impl<'de> serde::Deserialize<'de> for Note {
                 // Be permissive: if the string is a plain number, accept it
                 // as the integer form. This is forgiving for callers who
                 // serialize ints as strings ("60" → Note(60)).
-                if !t.is_empty() && t.bytes().all(|b| b.is_ascii_digit() || b == b'-' || b == b'+') {
+                if !t.is_empty()
+                    && t.bytes()
+                        .all(|b| b.is_ascii_digit() || b == b'-' || b == b'+')
+                {
                     if let Ok(n) = t.parse::<i32>() {
                         return self.visit_i64(n as i64);
                     }
@@ -146,8 +154,14 @@ pub fn parse_note_name(s: &str) -> Result<u8, String> {
     // flat, so the case-insensitive reading is the safer bet.
     let mut pos = 1;
     let accidental: i32 = match bytes.get(pos).copied() {
-        Some(b'#') => { pos += 1; 1 }
-        Some(b'b') | Some(b'B') => { pos += 1; -1 }
+        Some(b'#') => {
+            pos += 1;
+            1
+        }
+        Some(b'b') | Some(b'B') => {
+            pos += 1;
+            -1
+        }
         _ => 0,
     };
 
@@ -157,8 +171,8 @@ pub fn parse_note_name(s: &str) -> Result<u8, String> {
         // thinking repeat pitches need distinct names. Detect that shape
         // and steer them away — the schema accepts multiple entries with
         // the same pitch.
-        let has_suffix = octave_str.contains('_')
-            || (octave_str.contains('-') && !octave_str.starts_with('-'));
+        let has_suffix =
+            octave_str.contains('_') || (octave_str.contains('-') && !octave_str.starts_with('-'));
         if has_suffix {
             format!(
                 "invalid note name '{}': note names don't take suffixes. Use '{}' for every \
@@ -181,7 +195,10 @@ Expected form: 'C3', 'F#2', 'Bb4'.",
     // in the user's DAW are what matter, and every major DAW uses C3=60.
     let midi = (octave + 2) * 12 + semitone + accidental;
     if !(0..=127).contains(&midi) {
-        return Err(format!("note '{}' maps to MIDI {} (out of range 0-127)", s, midi));
+        return Err(format!(
+            "note '{}' maps to MIDI {} (out of range 0-127)",
+            s, midi
+        ));
     }
     Ok(midi as u8)
 }
@@ -276,13 +293,20 @@ mod tests {
     #[test]
     fn note_name_case_insensitive_letter_every_natural() {
         let pairs = [
-            ("c3", 60), ("C3", 60),
-            ("d3", 62), ("D3", 62),
-            ("e3", 64), ("E3", 64),
-            ("f3", 65), ("F3", 65),
-            ("g3", 67), ("G3", 67),
-            ("a3", 69), ("A3", 69),
-            ("b3", 71), ("B3", 71),
+            ("c3", 60),
+            ("C3", 60),
+            ("d3", 62),
+            ("D3", 62),
+            ("e3", 64),
+            ("E3", 64),
+            ("f3", 65),
+            ("F3", 65),
+            ("g3", 67),
+            ("G3", 67),
+            ("a3", 69),
+            ("A3", 69),
+            ("b3", 71),
+            ("B3", 71),
         ];
         for (name, expected) in pairs {
             assert_eq!(note(name), expected, "{} should be MIDI {}", name, expected);
@@ -292,11 +316,16 @@ mod tests {
     #[test]
     fn note_name_case_insensitive_sharps() {
         let pairs = [
-            ("c#3", 61), ("C#3", 61),
-            ("d#3", 63), ("D#3", 63),
-            ("f#3", 66), ("F#3", 66),
-            ("g#3", 68), ("G#3", 68),
-            ("a#3", 70), ("A#3", 70),
+            ("c#3", 61),
+            ("C#3", 61),
+            ("d#3", 63),
+            ("D#3", 63),
+            ("f#3", 66),
+            ("F#3", 66),
+            ("g#3", 68),
+            ("G#3", 68),
+            ("a#3", 70),
+            ("A#3", 70),
         ];
         for (name, expected) in pairs {
             assert_eq!(note(name), expected, "{} should be MIDI {}", name, expected);
@@ -306,11 +335,26 @@ mod tests {
     #[test]
     fn note_name_case_insensitive_flats_full_matrix() {
         let pairs = [
-            ("Db3", 61), ("dB3", 61), ("DB3", 61), ("db3", 61),
-            ("Eb3", 63), ("eB3", 63), ("EB3", 63), ("eb3", 63),
-            ("Gb3", 66), ("gB3", 66), ("GB3", 66), ("gb3", 66),
-            ("Ab3", 68), ("aB3", 68), ("AB3", 68), ("ab3", 68),
-            ("Bb3", 70), ("bB3", 70), ("BB3", 70), ("bb3", 70),
+            ("Db3", 61),
+            ("dB3", 61),
+            ("DB3", 61),
+            ("db3", 61),
+            ("Eb3", 63),
+            ("eB3", 63),
+            ("EB3", 63),
+            ("eb3", 63),
+            ("Gb3", 66),
+            ("gB3", 66),
+            ("GB3", 66),
+            ("gb3", 66),
+            ("Ab3", 68),
+            ("aB3", 68),
+            ("AB3", 68),
+            ("ab3", 68),
+            ("Bb3", 70),
+            ("bB3", 70),
+            ("BB3", 70),
+            ("bb3", 70),
         ];
         for (name, expected) in pairs {
             assert_eq!(note(name), expected, "{} should be MIDI {}", name, expected);
@@ -365,7 +409,10 @@ mod tests {
     #[test]
     fn note_name_rejects_empty() {
         assert!(parse_note_name("").is_err());
-        assert!(parse_note_name("   ").is_err(), "whitespace-only after trim");
+        assert!(
+            parse_note_name("   ").is_err(),
+            "whitespace-only after trim"
+        );
     }
 
     #[test]
@@ -384,7 +431,10 @@ mod tests {
 
     #[test]
     fn note_name_rejects_bad_octave() {
-        assert!(parse_note_name("Cx4").is_err(), "x is not a valid accidental");
+        assert!(
+            parse_note_name("Cx4").is_err(),
+            "x is not a valid accidental"
+        );
         assert!(parse_note_name("C4x").is_err(), "trailing garbage");
         assert!(parse_note_name("C4.5").is_err(), "fractional octave");
         assert!(parse_note_name("Cfoo").is_err());
@@ -393,11 +443,17 @@ mod tests {
     #[test]
     fn note_name_error_messages_are_helpful() {
         let err = parse_note_name("H4").unwrap_err();
-        assert!(err.contains("H4") || err.contains("note letter"),
-            "error for 'H4' should mention input or note-letter issue; got: {}", err);
+        assert!(
+            err.contains("H4") || err.contains("note letter"),
+            "error for 'H4' should mention input or note-letter issue; got: {}",
+            err
+        );
         let err = parse_note_name("C98").unwrap_err();
-        assert!(err.contains("C98") || err.contains("range"),
-            "range error should mention input or range; got: {}", err);
+        assert!(
+            err.contains("C98") || err.contains("range"),
+            "range error should mention input or range; got: {}",
+            err
+        );
     }
 
     #[test]
@@ -406,8 +462,16 @@ mod tests {
         // The error should call the pattern out and point to the correct
         // name, not just report a generic octave parse failure.
         let err = parse_note_name("G3_2").unwrap_err();
-        assert!(err.contains("G3_2"), "error should echo the bad input: {}", err);
-        assert!(err.contains("G3"), "error should point to the correct form: {}", err);
+        assert!(
+            err.contains("G3_2"),
+            "error should echo the bad input: {}",
+            err
+        );
+        assert!(
+            err.contains("G3"),
+            "error should point to the correct form: {}",
+            err
+        );
         assert!(
             err.contains("repeat") || err.contains("suffix"),
             "error should explain pitches can repeat: {}",
@@ -420,8 +484,11 @@ mod tests {
 
         // Dashed suffixes hit the same helpful message.
         let err = parse_note_name("C3-alt").unwrap_err();
-        assert!(err.contains("suffix") || err.contains("repeat"),
-            "dashed suffix should also trigger helpful message: {}", err);
+        assert!(
+            err.contains("suffix") || err.contains("repeat"),
+            "dashed suffix should also trigger helpful message: {}",
+            err
+        );
     }
 
     // ------------------------------------------------------------------
@@ -503,7 +570,9 @@ mod tests {
 
     #[test]
     fn note_roundtrip_name_to_midi_to_name() {
-        for name in ["C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3"] {
+        for name in [
+            "C3", "C#3", "D3", "D#3", "E3", "F3", "F#3", "G3", "G#3", "A3", "A#3", "B3",
+        ] {
             let midi = parse_note_name(name).unwrap();
             let back = Note(midi).to_string();
             assert_eq!(back, name, "roundtrip failed for {}", name);
@@ -514,8 +583,12 @@ mod tests {
     fn note_roundtrip_all_midi_values() {
         for midi in 0..=127u8 {
             let name = Note(midi).to_string();
-            let parsed = parse_note_name(&name)
-                .unwrap_or_else(|e| panic!("roundtrip failed for MIDI {}: name {:?} didn't parse: {}", midi, name, e));
+            let parsed = parse_note_name(&name).unwrap_or_else(|e| {
+                panic!(
+                    "roundtrip failed for MIDI {}: name {:?} didn't parse: {}",
+                    midi, name, e
+                )
+            });
             assert_eq!(parsed, midi, "MIDI {} → {:?} → MIDI {}", midi, name, parsed);
         }
     }

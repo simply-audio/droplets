@@ -105,16 +105,14 @@ pub fn load_settings() -> Settings {
 
     if path.exists() {
         match std::fs::read_to_string(&path) {
-            Ok(contents) => {
-                match serde_json::from_str::<Settings>(&contents) {
-                    Ok(settings) => {
-                        return settings;
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to parse settings file: {}", e);
-                    }
+            Ok(contents) => match serde_json::from_str::<Settings>(&contents) {
+                Ok(settings) => {
+                    return settings;
                 }
-            }
+                Err(e) => {
+                    log::warn!("Failed to parse settings file: {}", e);
+                }
+            },
             Err(e) => {
                 log::warn!("Failed to read settings file: {}", e);
             }
@@ -136,8 +134,7 @@ pub fn save_settings(settings: &Settings) -> Result<(), String> {
     let contents = serde_json::to_string_pretty(settings)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
 
-    std::fs::write(&path, contents)
-        .map_err(|e| format!("Failed to write settings file: {}", e))?;
+    std::fs::write(&path, contents).map_err(|e| format!("Failed to write settings file: {}", e))?;
 
     Ok(())
 }

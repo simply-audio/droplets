@@ -99,8 +99,7 @@ impl FugueBridge {
     /// Unregister a plugin instance
     pub fn unregister(id: &str) {
         let mut reg = registry().write().unwrap();
-        if reg.remove(id).is_some() {
-        }
+        if reg.remove(id).is_some() {}
     }
 
     /// Queue a fugue on an instance
@@ -111,7 +110,10 @@ impl FugueBridge {
         let entry = find_entry(&reg, instance)?;
 
         let id = definition.id;
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
             .push(FugueCommand::Queue(definition))
             .map_err(|_| "Queue full - audio thread not consuming fast enough")?;
@@ -130,7 +132,10 @@ impl FugueBridge {
         let reg = registry().read().unwrap();
         let entry = find_entry(&reg, instance)?;
 
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
             .push(FugueCommand::Cancel { id })
             .map_err(|_| "Queue full")?;
@@ -148,18 +153,21 @@ impl FugueBridge {
         let reg = registry().read().unwrap();
         let entry = find_entry(&reg, instance)?;
 
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
-            .push(FugueCommand::CancelByTag { tag: tag.to_string() })
+            .push(FugueCommand::CancelByTag {
+                tag: tag.to_string(),
+            })
             .map_err(|_| "Queue full")?;
         drop(producer);
 
         filter_info_cache(entry, |infos| {
             infos.retain(|i| i.tag.as_deref() != Some(tag))
         });
-        filter_definitions_cache(entry, |defs| {
-            defs.retain(|d| d.tag.as_deref() != Some(tag))
-        });
+        filter_definitions_cache(entry, |defs| defs.retain(|d| d.tag.as_deref() != Some(tag)));
 
         Ok(())
     }
@@ -170,7 +178,10 @@ impl FugueBridge {
         let reg = registry().read().unwrap();
         let entry = find_entry(&reg, instance)?;
 
-        let mut producer = entry.producer.lock().map_err(|_| "Producer lock poisoned")?;
+        let mut producer = entry
+            .producer
+            .lock()
+            .map_err(|_| "Producer lock poisoned")?;
         producer
             .push(FugueCommand::ClearAll)
             .map_err(|_| "Queue full")?;
@@ -282,7 +293,10 @@ impl FugueBridge {
     }
 
     /// Get a specific fugue definition by ID
-    pub fn get_definition(instance: &str, id: u64) -> Result<Option<FugueDefinition>, &'static str> {
+    pub fn get_definition(
+        instance: &str,
+        id: u64,
+    ) -> Result<Option<FugueDefinition>, &'static str> {
         let defs = Self::get_definitions(instance)?;
         Ok(defs.into_iter().find(|d| d.id == id))
     }

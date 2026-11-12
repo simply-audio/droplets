@@ -12,19 +12,22 @@ use std::sync::OnceLock;
 use std::time::Duration;
 
 use axum::{
-    Json, Router,
-    extract::{Path, Query, ws::{Message, WebSocket, WebSocketUpgrade}},
+    extract::{
+        ws::{Message, WebSocket, WebSocketUpgrade},
+        Path, Query,
+    },
     http::{header, StatusCode},
     response::{Html, IntoResponse},
     routing::{get, post},
+    Json, Router,
 };
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 
-use crate::fugue::{FugueBridge, TransportState};
-use crate::mcp::{CcBridge, project::ProjectLayout};
 use super::api;
+use crate::fugue::{FugueBridge, TransportState};
+use crate::mcp::{project::ProjectLayout, CcBridge};
 
 /// Broadcast channel for immediate project-layout updates to all connected
 /// GUI WebSocket sessions. Pushed to from the `/api/project_layout` POST
@@ -148,7 +151,10 @@ async fn run_server(port: u16) {
         // Project layout from the host controller extension. GET returns
         // the current snapshot for a tab opening fresh; POST is an
         // alternate ingress (the MCP server on :9999 is the primary).
-        .route("/api/project_layout", get(api_get_project_layout).post(api_post_project_layout))
+        .route(
+            "/api/project_layout",
+            get(api_get_project_layout).post(api_post_project_layout),
+        )
         // Actions
         .route("/api/start_learn/:slot", get(api_start_learn))
         .route("/api/cancel_learn", get(api_cancel_learn))
@@ -285,7 +291,10 @@ async fn api_cancel_learn(Query(query): Query<InstanceQuery>) -> impl IntoRespon
 }
 
 #[derive(serde::Deserialize)]
-struct AddSlotBody { cc: u8, name: String }
+struct AddSlotBody {
+    cc: u8,
+    name: String,
+}
 
 async fn api_add_slot(
     Query(query): Query<InstanceQuery>,
@@ -308,7 +317,9 @@ async fn api_remove_slot(
 }
 
 #[derive(serde::Deserialize)]
-struct SetCcBody { cc: u8 }
+struct SetCcBody {
+    cc: u8,
+}
 
 async fn api_set_slot_cc(
     Path(slot): Path<usize>,
@@ -327,7 +338,9 @@ async fn api_set_slot_cc(
 }
 
 #[derive(serde::Deserialize)]
-struct RenameBody { name: String }
+struct RenameBody {
+    name: String,
+}
 
 async fn api_rename_slot(
     Path(slot): Path<usize>,
@@ -341,7 +354,9 @@ async fn api_rename_slot(
 }
 
 #[derive(serde::Deserialize)]
-struct SetChannelBody { channel: u8 }
+struct SetChannelBody {
+    channel: u8,
+}
 
 async fn api_set_slot_channel(
     Path(slot): Path<usize>,
@@ -404,7 +419,11 @@ async fn api_queue_fugue(
 ) -> impl IntoResponse {
     log::info!(
         "GUI queue_fugue: instance='{}' tag={:?} events={} duration={} quantize={:?}",
-        query.instance, body.tag, body.events.len(), body.duration_beats, body.quantize
+        query.instance,
+        body.tag,
+        body.events.len(),
+        body.duration_beats,
+        body.quantize
     );
     let response = api::queue_fugue(&query.instance, body);
     if !response.ok {
@@ -451,7 +470,9 @@ async fn api_import_fugue(
     let instance = query.instance.clone();
     log::info!(
         "GUI import_fugue: instance='{}' bytes={} tag_prefix={:?}",
-        instance, body.len(), query.tag_prefix,
+        instance,
+        body.len(),
+        query.tag_prefix,
     );
     let response = api::import_fugue(&instance, body.as_ref(), query);
     if !response.ok {
@@ -464,14 +485,27 @@ async fn api_import_fugue(
 // Response helpers
 // =============================================================================
 
-fn json_response<T: Serialize>(data: T) -> (StatusCode, [(header::HeaderName, &'static str); 1], String) {
-    let json = serde_json::to_string(&data).unwrap_or_else(|_| r#"{"error":"serialize failed"}"#.to_string());
-    (StatusCode::OK, [(header::CONTENT_TYPE, "application/json")], json)
+fn json_response<T: Serialize>(
+    data: T,
+) -> (StatusCode, [(header::HeaderName, &'static str); 1], String) {
+    let json = serde_json::to_string(&data)
+        .unwrap_or_else(|_| r#"{"error":"serialize failed"}"#.to_string());
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/json")],
+        json,
+    )
 }
 
-fn error_response(status: StatusCode, error: &str) -> (StatusCode, [(header::HeaderName, &'static str); 1], String) {
-    let response = api::ErrorResponse { error: error.to_string() };
-    let json = serde_json::to_string(&response).unwrap_or_else(|_| format!(r#"{{"error":"{}"}}"#, error));
+fn error_response(
+    status: StatusCode,
+    error: &str,
+) -> (StatusCode, [(header::HeaderName, &'static str); 1], String) {
+    let response = api::ErrorResponse {
+        error: error.to_string(),
+    };
+    let json =
+        serde_json::to_string(&response).unwrap_or_else(|_| format!(r#"{{"error":"{}"}}"#, error));
     (status, [(header::CONTENT_TYPE, "application/json")], json)
 }
 

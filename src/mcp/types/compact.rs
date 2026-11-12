@@ -22,7 +22,9 @@ pub enum FugueContent {
     /// MIDI notes with automatic note-off generation
     Notes {
         /// Array of notes to play
-        #[schemars(description = "Array of notes. Each note auto-generates a note_off at beat + duration.")]
+        #[schemars(
+            description = "Array of notes. Each note auto-generates a note_off at beat + duration."
+        )]
         notes: Vec<CompactNote>,
     },
     /// CC automation with smooth audio-thread interpolation between points
@@ -31,11 +33,15 @@ pub enum FugueContent {
         #[schemars(description = "CC number (0-127)")]
         cc: u8,
         /// Array of points. Same tuple shape as per-note: [beat, value] or [beat, value, curve].
-        #[schemars(description = "Array of [beat, value] or [beat, value, curve] points. Values 0-127. The audio thread smoothly interpolates between consecutive points. NOTE: CC uses ONE curve per fugue today — the `interpolation` field wins if set; otherwise the first per-point curve is used. Per-segment curves are planned post-demo (Feature 10). Example: [[0,0],[4,127]] ramps smoothly over 4 beats.")]
+        #[schemars(
+            description = "Array of [beat, value] or [beat, value, curve] points. Values 0-127. The audio thread smoothly interpolates between consecutive points. NOTE: CC uses ONE curve per fugue today — the `interpolation` field wins if set; otherwise the first per-point curve is used. Per-segment curves are planned post-demo (Feature 10). Example: [[0,0],[4,127]] ramps smoothly over 4 beats."
+        )]
         points: Vec<Point>,
         /// Interpolation mode for the entire fugue: "linear" (default), "exp", "log", or "none"
         #[serde(default)]
-        #[schemars(description = "Fugue-level interpolation: 'linear' (default), 'exp' (ease-in, accelerating), 'log' (ease-out, decelerating), or 'none' (stepped). If set, overrides any per-point curves.")]
+        #[schemars(
+            description = "Fugue-level interpolation: 'linear' (default), 'exp' (ease-in, accelerating), 'log' (ease-out, decelerating), or 'none' (stepped). If set, overrides any per-point curves."
+        )]
         interpolation: Option<String>,
     },
     /// Per-note pitch bend over time (MIDI 2.0). Bends a single held note.
@@ -45,14 +51,20 @@ pub enum FugueContent {
     /// shapes (e.g. exp up, log down). Server-side expansion at ~32 events/beat.
     PerNotePitchBend {
         /// MIDI note being bent. Must match a note currently held by a concurrent Notes fugue. Accepts name ('C4') or number (60).
-        #[schemars(description = "MIDI note to bend. Must be held by a concurrent notes fugue on the same channel. Accepts name like 'C4' or 'F#3', or number 0-127.")]
+        #[schemars(
+            description = "MIDI note to bend. Must be held by a concurrent notes fugue on the same channel. Accepts name like 'C4' or 'F#3', or number 0-127."
+        )]
         note: Note,
         /// Points forming the bend trajectory. Tuple form [beat, semitones] or [beat, semitones, curve].
-        #[schemars(description = "Array of trajectory points. Each point is [beat, semitones] or [beat, semitones, curve]. Semitones -64.0 to +64.0 (0 = no bend). Per-point curve controls the segment arriving at it (ignored on first point). Example vibrato: [[0,0],[0.5,1],[1,-1],[1.5,0]].")]
+        #[schemars(
+            description = "Array of trajectory points. Each point is [beat, semitones] or [beat, semitones, curve]. Semitones -64.0 to +64.0 (0 = no bend). Per-point curve controls the segment arriving at it (ignored on first point). Example vibrato: [[0,0],[0.5,1],[1,-1],[1.5,0]]."
+        )]
         points: Vec<Point>,
         /// Fugue-level default curve for segments without a per-point curve.
         #[serde(default)]
-        #[schemars(description = "Fugue-level default interpolation for segments whose points don't specify a curve. 'linear' (default), 'exp', 'log', or 'none'.")]
+        #[schemars(
+            description = "Fugue-level default interpolation for segments whose points don't specify a curve. 'linear' (default), 'exp', 'log', or 'none'."
+        )]
         interpolation: Option<String>,
     },
     /// Per-note pressure/aftertouch over time (MIDI 2.0). Modulates a single held note.
@@ -60,14 +72,20 @@ pub enum FugueContent {
     /// Same per-segment curve shape as CC and per-note pitch bend.
     PerNotePressure {
         /// MIDI note receiving pressure. Must match a note currently held by a concurrent Notes fugue. Accepts name ('C4') or number (60).
-        #[schemars(description = "MIDI note for pressure. Must be held by a concurrent notes fugue on the same channel. Accepts name like 'C4' or 'F#3', or number 0-127.")]
+        #[schemars(
+            description = "MIDI note for pressure. Must be held by a concurrent notes fugue on the same channel. Accepts name like 'C4' or 'F#3', or number 0-127."
+        )]
         note: Note,
         /// Points forming the pressure trajectory. Tuple form [beat, pressure] or [beat, pressure, curve].
-        #[schemars(description = "Array of trajectory points. Each point is [beat, pressure] or [beat, pressure, curve]. Pressure 0.0-1.0. Per-point curve controls the segment arriving at it (ignored on first point). Example crescendo-then-release: [[0,0],[2,1,\"exp\"],[4,0,\"log\"]].")]
+        #[schemars(
+            description = "Array of trajectory points. Each point is [beat, pressure] or [beat, pressure, curve]. Pressure 0.0-1.0. Per-point curve controls the segment arriving at it (ignored on first point). Example crescendo-then-release: [[0,0],[2,1,\"exp\"],[4,0,\"log\"]]."
+        )]
         points: Vec<Point>,
         /// Fugue-level default curve for segments without a per-point curve.
         #[serde(default)]
-        #[schemars(description = "Fugue-level default interpolation for segments whose points don't specify a curve. 'linear' (default), 'exp', 'log', or 'none'.")]
+        #[schemars(
+            description = "Fugue-level default interpolation for segments whose points don't specify a curve. 'linear' (default), 'exp', 'log', or 'none'."
+        )]
         interpolation: Option<String>,
     },
     /// Composite fugue — bundle notes + cc + per-note bends + per-note pressures
@@ -80,19 +98,27 @@ pub enum FugueContent {
     Composite {
         /// Notes to play. Required — at least provide an empty array if
         /// there are no notes, though a composite with zero notes is unusual.
-        #[schemars(description = "Array of notes. Each auto-generates a note_off at beat + duration.")]
+        #[schemars(
+            description = "Array of notes. Each auto-generates a note_off at beat + duration."
+        )]
         notes: Vec<CompactNote>,
         /// CC lanes. One entry per CC number you want to automate.
         #[serde(default)]
-        #[schemars(description = "Array of CC automation lanes. Each lane has its own cc number, points, and optional interpolation. Omit or empty if no CC automation.")]
+        #[schemars(
+            description = "Array of CC automation lanes. Each lane has its own cc number, points, and optional interpolation. Omit or empty if no CC automation."
+        )]
         cc: Vec<CompactCc>,
         /// Per-note pitch-bend lanes. One entry per target note.
         #[serde(default)]
-        #[schemars(description = "Array of per-note pitch-bend lanes. Each targets one held note. Omit or empty if no bends.")]
+        #[schemars(
+            description = "Array of per-note pitch-bend lanes. Each targets one held note. Omit or empty if no bends."
+        )]
         pitch_bends: Vec<CompactPitchBend>,
         /// Per-note pressure lanes. One entry per target note.
         #[serde(default)]
-        #[schemars(description = "Array of per-note pressure lanes. Each targets one held note. Omit or empty if no pressure.")]
+        #[schemars(
+            description = "Array of per-note pressure lanes. Each targets one held note. Omit or empty if no pressure."
+        )]
         pressures: Vec<CompactPressure>,
     },
 }
@@ -102,14 +128,20 @@ pub enum FugueContent {
 #[derive(Debug, serde::Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CompactCc {
     /// CC number (0-127).
-    #[schemars(description = "CC number (0-127). Common: 1=mod, 7=volume, 11=expression, 71=resonance, 74=filter cutoff, 91=reverb.")]
+    #[schemars(
+        description = "CC number (0-127). Common: 1=mod, 7=volume, 11=expression, 71=resonance, 74=filter cutoff, 91=reverb."
+    )]
     pub cc: u8,
     /// Array of [beat, value] or [beat, value, curve] points. Values 0-127.
-    #[schemars(description = "Array of [beat, value] or [beat, value, curve] points. Values 0-127.")]
+    #[schemars(
+        description = "Array of [beat, value] or [beat, value, curve] points. Values 0-127."
+    )]
     pub points: Vec<Point>,
     /// Default curve for segments without a per-point curve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "Lane-level default interpolation: 'linear' (default), 'exp', 'log', or 'none'. Per-point curves override.")]
+    #[schemars(
+        description = "Lane-level default interpolation: 'linear' (default), 'exp', 'log', or 'none'. Per-point curves override."
+    )]
     pub interpolation: Option<String>,
 }
 
@@ -117,14 +149,20 @@ pub struct CompactCc {
 #[derive(Debug, serde::Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CompactPitchBend {
     /// Target note. Must match a note held in the composite's `notes` array on the same channel.
-    #[schemars(description = "Target note (name like 'C4' or number 0-127). Must match a note held in the composite's notes array on the same channel.")]
+    #[schemars(
+        description = "Target note (name like 'C4' or number 0-127). Must match a note held in the composite's notes array on the same channel."
+    )]
     pub note: Note,
     /// Array of [beat, semitones] or [beat, semitones, curve] points. Semitones -64.0 to +64.0.
-    #[schemars(description = "Array of [beat, semitones] or [beat, semitones, curve] points. Semitones -64.0 to +64.0.")]
+    #[schemars(
+        description = "Array of [beat, semitones] or [beat, semitones, curve] points. Semitones -64.0 to +64.0."
+    )]
     pub points: Vec<Point>,
     /// Lane-level default curve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "Lane-level default interpolation: 'linear' (default), 'exp', 'log', or 'none'. Per-point curves override.")]
+    #[schemars(
+        description = "Lane-level default interpolation: 'linear' (default), 'exp', 'log', or 'none'. Per-point curves override."
+    )]
     pub interpolation: Option<String>,
 }
 
@@ -132,14 +170,20 @@ pub struct CompactPitchBend {
 #[derive(Debug, serde::Serialize, Deserialize, schemars::JsonSchema)]
 pub struct CompactPressure {
     /// Target note. Must match a note held in the composite's `notes` array on the same channel.
-    #[schemars(description = "Target note (name like 'C4' or number 0-127). Must match a note held in the composite's notes array on the same channel.")]
+    #[schemars(
+        description = "Target note (name like 'C4' or number 0-127). Must match a note held in the composite's notes array on the same channel."
+    )]
     pub note: Note,
     /// Array of [beat, pressure] or [beat, pressure, curve] points. Pressure 0.0-1.0.
-    #[schemars(description = "Array of [beat, pressure] or [beat, pressure, curve] points. Pressure 0.0-1.0.")]
+    #[schemars(
+        description = "Array of [beat, pressure] or [beat, pressure, curve] points. Pressure 0.0-1.0."
+    )]
     pub points: Vec<Point>,
     /// Lane-level default curve.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "Lane-level default interpolation: 'linear' (default), 'exp', 'log', or 'none'. Per-point curves override.")]
+    #[schemars(
+        description = "Lane-level default interpolation: 'linear' (default), 'exp', 'log', or 'none'. Per-point curves override."
+    )]
     pub interpolation: Option<String>,
 }
 
@@ -171,9 +215,7 @@ impl serde::Serialize for CompactNote {
     /// expects to see.
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
-        let field_count = 3
-            + self.velocity.map_or(0, |_| 1)
-            + self.channel.map_or(0, |_| 1);
+        let field_count = 3 + self.velocity.map_or(0, |_| 1) + self.channel.map_or(0, |_| 1);
         let mut s = serializer.serialize_struct("CompactNote", field_count)?;
         s.serialize_field("beat", &self.beat)?;
         s.serialize_field("note", &self.note)?;
@@ -226,7 +268,13 @@ impl<'de> serde::Deserialize<'de> for CompactNote {
                 };
                 // Drain any extra elements for forward compatibility.
                 while seq.next_element::<IgnoredAny>()?.is_some() {}
-                Ok(CompactNote { beat, note, duration, velocity, channel })
+                Ok(CompactNote {
+                    beat,
+                    note,
+                    duration,
+                    velocity,
+                    channel,
+                })
             }
 
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<CompactNote, A::Error> {
@@ -325,14 +373,24 @@ impl schemars::JsonSchema for CompactNote {
 pub struct CompactFugue {
     /// Tag for grouping/cancellation (e.g., "melody", "filter")
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "Tag for grouping/cancellation. Use with cancel_mode:'tag:NAME' to replace specific fugues.")]
+    #[schemars(
+        description = "Tag for grouping/cancellation. Use with cancel_mode:'tag:NAME' to replace specific fugues."
+    )]
     pub tag: Option<String>,
     /// What to cancel when this fugue starts: "none", "tag:NAME", or "all"
-    #[serde(default = "super::request::default_cancel_mode", skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "What to cancel when starting: 'none', 'tag:NAME' (cancels matching tag), or 'all'")]
+    #[serde(
+        default = "super::request::default_cancel_mode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(
+        description = "What to cancel when starting: 'none', 'tag:NAME' (cancels matching tag), or 'all'"
+    )]
     pub cancel_mode: Option<String>,
     /// Default MIDI channel for this fugue (1-16, defaults to 1)
-    #[serde(default = "super::request::default_fugue_channel", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default = "super::request::default_fugue_channel",
+        skip_serializing_if = "Option::is_none"
+    )]
     #[schemars(description = "Default MIDI channel (1-16, defaults to 1)")]
     pub channel: Option<u8>,
 
@@ -345,7 +403,9 @@ pub struct CompactFugue {
     pub quantize: Option<String>,
     /// Override duration for this fugue
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "Override duration in beats. Omit to auto-size to the smallest whole bar that fits the content; explicit values shorter than the content are extended to fit.")]
+    #[schemars(
+        description = "Override duration in beats. Omit to auto-size to the smallest whole bar that fits the content; explicit values shorter than the content are extended to fit."
+    )]
     pub duration_beats: Option<f64>,
     /// Override loop mode for this fugue
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -354,7 +414,9 @@ pub struct CompactFugue {
     /// How the fugue lands on the song-grid when `quantize` resolves to a
     /// target beat that isn't a multiple of `duration_beats`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[schemars(description = "Start mode: 'phase' (default — fugue joins the implicit always-running grid at the current song-phase, may start mid-pattern) or 'boundary' (wait for the next multiple of duration_beats, then play from pattern-beat-0). Iteration boundaries always sit on multiples of duration_beats from song-beat-0 regardless of this mode; it only decides what happens between queue time and the first full iteration boundary.")]
+    #[schemars(
+        description = "Start mode: 'phase' (default — fugue joins the implicit always-running grid at the current song-phase, may start mid-pattern) or 'boundary' (wait for the next multiple of duration_beats, then play from pattern-beat-0). Iteration boundaries always sit on multiples of duration_beats from song-beat-0 regardless of this mode; it only decides what happens between queue time and the first full iteration boundary."
+    )]
     pub start_mode: Option<String>,
 
     /// The fugue content (notes / CC / per-note expression)
@@ -467,7 +529,9 @@ mod tests {
         }"#;
         let content: FugueContent = serde_json::from_str(json).unwrap();
         match content {
-            FugueContent::Cc { cc, interpolation, .. } => {
+            FugueContent::Cc {
+                cc, interpolation, ..
+            } => {
                 assert_eq!(cc, 74);
                 assert_eq!(interpolation.as_deref(), Some("exp"));
             }
@@ -485,7 +549,11 @@ mod tests {
         }"#;
         let content: FugueContent = serde_json::from_str(json).unwrap();
         match content {
-            FugueContent::Cc { cc, points, interpolation } => {
+            FugueContent::Cc {
+                cc,
+                points,
+                interpolation,
+            } => {
                 assert_eq!(cc, 74);
                 assert_eq!(points.len(), 3);
                 assert_eq!(points[0].curve, None);
@@ -576,14 +644,19 @@ mod tests {
         }"#;
         let content: FugueContent = serde_json::from_str(json).unwrap();
         match content {
-            FugueContent::Composite { notes, cc, pitch_bends, pressures } => {
+            FugueContent::Composite {
+                notes,
+                cc,
+                pitch_bends,
+                pressures,
+            } => {
                 assert_eq!(notes.len(), 3);
-                assert_eq!(notes[0].note.0, 36);  // C1 in DAW convention (C3=60)
+                assert_eq!(notes[0].note.0, 36); // C1 in DAW convention (C3=60)
                 assert_eq!(cc.len(), 2);
                 assert_eq!(cc[0].cc, 74);
                 assert_eq!(cc[1].interpolation.as_deref(), Some("exp"));
                 assert_eq!(pitch_bends.len(), 1);
-                assert_eq!(pitch_bends[0].note.0, 55);  // G2 in DAW convention
+                assert_eq!(pitch_bends[0].note.0, 55); // G2 in DAW convention
                 assert_eq!(pressures.len(), 2);
             }
             _ => panic!("expected Composite variant"),
@@ -598,7 +671,12 @@ mod tests {
         }"#;
         let content: FugueContent = serde_json::from_str(json).unwrap();
         match content {
-            FugueContent::Composite { notes, cc, pitch_bends, pressures } => {
+            FugueContent::Composite {
+                notes,
+                cc,
+                pitch_bends,
+                pressures,
+            } => {
                 assert_eq!(notes.len(), 1);
                 assert!(cc.is_empty());
                 assert!(pitch_bends.is_empty());
@@ -699,8 +777,7 @@ mod tests {
 
     #[test]
     fn compact_note_object_form_duration_now_optional() {
-        let n: CompactNote =
-            serde_json::from_str(r#"{"beat": 0, "note": "C3"}"#).unwrap();
+        let n: CompactNote = serde_json::from_str(r#"{"beat": 0, "note": "C3"}"#).unwrap();
         assert_eq!(n.duration, 1.0);
     }
 

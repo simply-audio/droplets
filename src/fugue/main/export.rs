@@ -3,8 +3,8 @@
 //! Converts FugueDefinition to Standard MIDI File (SMF) format.
 
 use midly::{
-    Format, Header, MetaMessage, MidiMessage, Smf, Track, TrackEvent, TrackEventKind,
     num::{u14, u15, u24, u28, u4, u7},
+    Format, Header, MetaMessage, MidiMessage, Smf, Track, TrackEvent, TrackEventKind,
 };
 use std::collections::HashMap;
 
@@ -104,14 +104,28 @@ fn beat_to_tick(beat: f64) -> u32 {
 fn expand_timed_notes_for_export(events: &[TimedFugueEvent]) -> Vec<TimedFugueEvent> {
     let mut out: Vec<TimedFugueEvent> = Vec::with_capacity(events.len());
     for ev in events {
-        if let FugueEvent::TimedNote { channel, note, velocity, duration_beats } = &ev.event {
+        if let FugueEvent::TimedNote {
+            channel,
+            note,
+            velocity,
+            duration_beats,
+        } = &ev.event
+        {
             out.push(TimedFugueEvent::new(
                 ev.beat_offset,
-                FugueEvent::NoteOn { channel: *channel, note: *note, velocity: *velocity },
+                FugueEvent::NoteOn {
+                    channel: *channel,
+                    note: *note,
+                    velocity: *velocity,
+                },
             ));
             out.push(TimedFugueEvent::new(
                 ev.beat_offset + duration_beats,
-                FugueEvent::NoteOff { channel: *channel, note: *note, velocity: 0 },
+                FugueEvent::NoteOff {
+                    channel: *channel,
+                    note: *note,
+                    velocity: 0,
+                },
             ));
         } else {
             out.push(ev.clone());
@@ -123,33 +137,40 @@ fn expand_timed_notes_for_export(events: &[TimedFugueEvent]) -> Vec<TimedFugueEv
 /// Convert a FugueEvent to a MIDI TrackEventKind
 fn fugue_event_to_midi(event: &FugueEvent) -> Option<TrackEventKind<'static>> {
     match event {
-        FugueEvent::NoteOn { channel, note, velocity } => {
-            Some(TrackEventKind::Midi {
-                channel: u4::new(*channel & 0x0F),
-                message: MidiMessage::NoteOn {
-                    key: u7::new(*note & 0x7F),
-                    vel: u7::new(*velocity & 0x7F),
-                },
-            })
-        }
-        FugueEvent::NoteOff { channel, note, velocity } => {
-            Some(TrackEventKind::Midi {
-                channel: u4::new(*channel & 0x0F),
-                message: MidiMessage::NoteOff {
-                    key: u7::new(*note & 0x7F),
-                    vel: u7::new(*velocity & 0x7F),
-                },
-            })
-        }
-        FugueEvent::Cc { channel, controller, value, .. } => {
-            Some(TrackEventKind::Midi {
-                channel: u4::new(*channel & 0x0F),
-                message: MidiMessage::Controller {
-                    controller: u7::new(*controller & 0x7F),
-                    value: u7::new(*value & 0x7F),
-                },
-            })
-        }
+        FugueEvent::NoteOn {
+            channel,
+            note,
+            velocity,
+        } => Some(TrackEventKind::Midi {
+            channel: u4::new(*channel & 0x0F),
+            message: MidiMessage::NoteOn {
+                key: u7::new(*note & 0x7F),
+                vel: u7::new(*velocity & 0x7F),
+            },
+        }),
+        FugueEvent::NoteOff {
+            channel,
+            note,
+            velocity,
+        } => Some(TrackEventKind::Midi {
+            channel: u4::new(*channel & 0x0F),
+            message: MidiMessage::NoteOff {
+                key: u7::new(*note & 0x7F),
+                vel: u7::new(*velocity & 0x7F),
+            },
+        }),
+        FugueEvent::Cc {
+            channel,
+            controller,
+            value,
+            ..
+        } => Some(TrackEventKind::Midi {
+            channel: u4::new(*channel & 0x0F),
+            message: MidiMessage::Controller {
+                controller: u7::new(*controller & 0x7F),
+                value: u7::new(*value & 0x7F),
+            },
+        }),
         FugueEvent::PitchBend { channel, value } => {
             let bend = (8192 + *value).clamp(0, 16383) as u16;
             Some(TrackEventKind::Midi {
@@ -159,24 +180,26 @@ fn fugue_event_to_midi(event: &FugueEvent) -> Option<TrackEventKind<'static>> {
                 },
             })
         }
-        FugueEvent::Pressure { channel, value } => {
-            Some(TrackEventKind::Midi {
-                channel: u4::new(*channel & 0x0F),
-                message: MidiMessage::ChannelAftertouch {
-                    vel: u7::new(*value & 0x7F),
-                },
-            })
-        }
-        FugueEvent::PolyPressure { channel, note, value } => {
-            Some(TrackEventKind::Midi {
-                channel: u4::new(*channel & 0x0F),
-                message: MidiMessage::Aftertouch {
-                    key: u7::new(*note & 0x7F),
-                    vel: u7::new(*value & 0x7F),
-                },
-            })
-        }
-        FugueEvent::PerNotePitchBend { channel, semitones, .. } => {
+        FugueEvent::Pressure { channel, value } => Some(TrackEventKind::Midi {
+            channel: u4::new(*channel & 0x0F),
+            message: MidiMessage::ChannelAftertouch {
+                vel: u7::new(*value & 0x7F),
+            },
+        }),
+        FugueEvent::PolyPressure {
+            channel,
+            note,
+            value,
+        } => Some(TrackEventKind::Midi {
+            channel: u4::new(*channel & 0x0F),
+            message: MidiMessage::Aftertouch {
+                key: u7::new(*note & 0x7F),
+                vel: u7::new(*value & 0x7F),
+            },
+        }),
+        FugueEvent::PerNotePitchBend {
+            channel, semitones, ..
+        } => {
             // Convert semitones to pitch bend value (assuming ±48 semitone range)
             // Center is 8192, range is 0-16383
             let bend = (8192.0 + (semitones / 48.0) * 8192.0).clamp(0.0, 16383.0) as u16;
@@ -187,7 +210,12 @@ fn fugue_event_to_midi(event: &FugueEvent) -> Option<TrackEventKind<'static>> {
                 },
             })
         }
-        FugueEvent::PerNotePressure { channel, note, pressure, .. } => {
+        FugueEvent::PerNotePressure {
+            channel,
+            note,
+            pressure,
+            ..
+        } => {
             // Convert to polyphonic aftertouch (per-note pressure)
             let value = (pressure * 127.0).clamp(0.0, 127.0) as u8;
             Some(TrackEventKind::Midi {
@@ -235,11 +263,17 @@ fn densify_cc_events(
 
     for event in events {
         match &event.event {
-            FugueEvent::Cc { channel, controller, value, interpolation } => {
-                cc_lanes
-                    .entry((*channel, *controller))
-                    .or_default()
-                    .push((event.beat_offset, *value, *interpolation));
+            FugueEvent::Cc {
+                channel,
+                controller,
+                value,
+                interpolation,
+            } => {
+                cc_lanes.entry((*channel, *controller)).or_default().push((
+                    event.beat_offset,
+                    *value,
+                    *interpolation,
+                ));
             }
             _ => non_cc_events.push(event.clone()),
         }
@@ -274,8 +308,7 @@ fn densify_cc_events(
                 fugue_default_curve
             };
 
-            let flat_segment =
-                start_val == end_val || curve == InterpolationMode::None;
+            let flat_segment = start_val == end_val || curve == InterpolationMode::None;
             if flat_segment {
                 result.push(TimedFugueEvent::cc(end_beat, channel, cc, end_val));
                 continue;
@@ -285,8 +318,8 @@ fn densify_cc_events(
             while current_beat < end_beat {
                 let t = (current_beat - start_beat) / (end_beat - start_beat);
                 let curved_t = curve.apply_curve(t);
-                let value = lerp(start_val as f64, end_val as f64, curved_t)
-                    .clamp(0.0, 127.0) as u8;
+                let value =
+                    lerp(start_val as f64, end_val as f64, curved_t).clamp(0.0, 127.0) as u8;
                 result.push(TimedFugueEvent::cc(current_beat, channel, cc, value));
                 current_beat += resolution_beats;
             }
@@ -294,7 +327,11 @@ fn densify_cc_events(
         }
     }
 
-    result.sort_by(|a, b| a.beat_offset.partial_cmp(&b.beat_offset).unwrap_or(std::cmp::Ordering::Equal));
+    result.sort_by(|a, b| {
+        a.beat_offset
+            .partial_cmp(&b.beat_offset)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     result
 }
 
@@ -372,7 +409,8 @@ pub fn merge_fugues_by_tag(defs: &[FugueDefinition]) -> Vec<FugueDefinition> {
     // Group first, then merge — separating the two phases keeps the LCM +
     // replication logic on flat lists rather than tangled with tag tracking.
     let mut groups: Vec<(Option<String>, Vec<&FugueDefinition>)> = Vec::new();
-    let mut tag_to_index: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut tag_to_index: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for def in defs {
         match &def.tag {
             Some(tag) => {
@@ -484,7 +522,8 @@ fn lcm_beats_capped(durations: &[f64], cap_beats: f64) -> f64 {
             log::warn!(
                 "merge_fugues_by_tag: LCM of durations {:?} exceeds {} beat cap; \
                  clamping merged duration to cap and truncating member cycles at the end",
-                durations, cap_beats
+                durations,
+                cap_beats
             );
             return cap_beats;
         }
@@ -623,17 +662,15 @@ pub fn fugues_to_smf(definitions: &[FugueDefinition], tempo_bpm: f64) -> Vec<u8>
 ///
 /// LCM duration + replication logic runs the same as `merge_fugues_by_tag`
 /// so a short CC sweep loops cleanly alongside a longer note pattern.
-pub fn fugues_to_single_track_smf(
-    definitions: &[FugueDefinition],
-    tempo_bpm: f64,
-) -> Vec<u8> {
+pub fn fugues_to_single_track_smf(definitions: &[FugueDefinition], tempo_bpm: f64) -> Vec<u8> {
     let Some(merged) = merge_all_fugues(definitions) else {
-        return ExportedMidi { tempo_bpm, tracks: Vec::new() }.to_bytes();
+        return ExportedMidi {
+            tempo_bpm,
+            tracks: Vec::new(),
+        }
+        .to_bytes();
     };
-    let name = merged
-        .tag
-        .clone()
-        .unwrap_or_else(|| "merged".to_string());
+    let name = merged.tag.clone().unwrap_or_else(|| "merged".to_string());
     let expanded = expand_timed_notes_for_export(&merged.events);
     let events = densify_cc_events(&expanded, merged.cc_interpolation);
     ExportedMidi {
@@ -727,7 +764,13 @@ pub fn generate_filename(definition: &FugueDefinition) -> String {
     // Sanitize tag for filename
     let safe_tag: String = tag
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -786,7 +829,10 @@ mod tests {
             TimedFugueEvent::cc(1.0, 0, 1, 120),
         ];
         let densified = densify_cc_events(&events, InterpolationMode::Exp);
-        assert!(densified.len() > 2, "Exp curve should densify, not just emit anchors");
+        assert!(
+            densified.len() > 2,
+            "Exp curve should densify, not just emit anchors"
+        );
 
         // Pick a mid-segment sample and confirm it matches Exp curve, not linear.
         // At t=0.5, linear would give ~60; exp (t²) gives ~30.
@@ -799,7 +845,11 @@ mod tests {
             _ => panic!(),
         };
         // t² at t=0.5 → 0.25 → value ≈ 30. Linear would be ~60.
-        assert!(midvalue < 50, "Exp curve at t=0.5 should be <50, got {}", midvalue);
+        assert!(
+            midvalue < 50,
+            "Exp curve at t=0.5 should be <50, got {}",
+            midvalue
+        );
     }
 
     #[test]
@@ -808,8 +858,24 @@ mod tests {
         // carries an explicit Exp curve tag — the segment should honour
         // the per-point override.
         let events = vec![
-            TimedFugueEvent::new(0.0, FugueEvent::Cc { channel: 0, controller: 1, value: 0, interpolation: InterpolationMode::None }),
-            TimedFugueEvent::new(1.0, FugueEvent::Cc { channel: 0, controller: 1, value: 120, interpolation: InterpolationMode::Exp }),
+            TimedFugueEvent::new(
+                0.0,
+                FugueEvent::Cc {
+                    channel: 0,
+                    controller: 1,
+                    value: 0,
+                    interpolation: InterpolationMode::None,
+                },
+            ),
+            TimedFugueEvent::new(
+                1.0,
+                FugueEvent::Cc {
+                    channel: 0,
+                    controller: 1,
+                    value: 120,
+                    interpolation: InterpolationMode::Exp,
+                },
+            ),
         ];
         let densified = densify_cc_events(&events, InterpolationMode::Linear);
         let midpoint = densified
@@ -821,7 +887,11 @@ mod tests {
             _ => panic!(),
         };
         // Should be low (Exp), not ~60 (Linear).
-        assert!(midvalue < 50, "per-point Exp should override Linear default; got {}", midvalue);
+        assert!(
+            midvalue < 50,
+            "per-point Exp should override Linear default; got {}",
+            midvalue
+        );
     }
 
     #[test]
@@ -829,11 +899,31 @@ mod tests {
         // Fugue-level Linear but a segment explicitly tagged None should
         // stay stepped. Used when the LLM wants a filter-hold-then-jump.
         let events = vec![
-            TimedFugueEvent::new(0.0, FugueEvent::Cc { channel: 0, controller: 1, value: 0, interpolation: InterpolationMode::None }),
-            TimedFugueEvent::new(1.0, FugueEvent::Cc { channel: 0, controller: 1, value: 120, interpolation: InterpolationMode::None }),
+            TimedFugueEvent::new(
+                0.0,
+                FugueEvent::Cc {
+                    channel: 0,
+                    controller: 1,
+                    value: 0,
+                    interpolation: InterpolationMode::None,
+                },
+            ),
+            TimedFugueEvent::new(
+                1.0,
+                FugueEvent::Cc {
+                    channel: 0,
+                    controller: 1,
+                    value: 120,
+                    interpolation: InterpolationMode::None,
+                },
+            ),
         ];
         let densified = densify_cc_events(&events, InterpolationMode::Linear);
-        assert_eq!(densified.len(), 2, "explicit None curve should not densify this segment");
+        assert_eq!(
+            densified.len(),
+            2,
+            "explicit None curve should not densify this segment"
+        );
     }
 
     // ------------------------------------------------------------------
@@ -856,12 +946,18 @@ mod tests {
     #[test]
     fn fugues_to_smf_one_track_per_tag() {
         let bass = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 36, 100), TimedFugueEvent::note_off(1.0, 0, 36)],
+            vec![
+                TimedFugueEvent::note_on(0.0, 0, 36, 100),
+                TimedFugueEvent::note_off(1.0, 0, 36),
+            ],
             4.0,
         )
         .with_tag("bass");
         let lead = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 60, 100), TimedFugueEvent::note_off(0.5, 0, 60)],
+            vec![
+                TimedFugueEvent::note_on(0.0, 0, 60, 100),
+                TimedFugueEvent::note_off(0.5, 0, 60),
+            ],
             4.0,
         )
         .with_tag("lead");
@@ -874,10 +970,9 @@ mod tests {
 
         // Track 0 is the conductor — should carry a tempo meta, no track name.
         let conductor = &smf.tracks[0];
-        let has_tempo = conductor.iter().any(|e| matches!(
-            e.kind,
-            TrackEventKind::Meta(MetaMessage::Tempo(_))
-        ));
+        let has_tempo = conductor
+            .iter()
+            .any(|e| matches!(e.kind, TrackEventKind::Meta(MetaMessage::Tempo(_))));
         assert!(has_tempo, "conductor track missing tempo meta");
     }
 
@@ -908,12 +1003,18 @@ mod tests {
         // track. Unusual live but possible if the user queued without
         // a cancel_mode, and the merge shouldn't panic or lose events.
         let a = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 36, 100), TimedFugueEvent::note_off(1.0, 0, 36)],
+            vec![
+                TimedFugueEvent::note_on(0.0, 0, 36, 100),
+                TimedFugueEvent::note_off(1.0, 0, 36),
+            ],
             4.0,
         )
         .with_tag("bass");
         let b = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(2.0, 0, 36, 100), TimedFugueEvent::note_off(3.0, 0, 36)],
+            vec![
+                TimedFugueEvent::note_on(2.0, 0, 36, 100),
+                TimedFugueEvent::note_off(3.0, 0, 36),
+            ],
             4.0,
         )
         .with_tag("bass");
@@ -926,21 +1027,23 @@ mod tests {
         // Both note-on events should be present in the merged track.
         let note_ons = smf.tracks[1]
             .iter()
-            .filter(|e| matches!(e.kind, TrackEventKind::Midi { message: MidiMessage::NoteOn { .. }, .. }))
+            .filter(|e| {
+                matches!(
+                    e.kind,
+                    TrackEventKind::Midi {
+                        message: MidiMessage::NoteOn { .. },
+                        ..
+                    }
+                )
+            })
             .count();
         assert_eq!(note_ons, 2);
     }
 
     #[test]
     fn fugues_to_smf_untagged_fugues_get_unique_tracks() {
-        let a = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)],
-            1.0,
-        );
-        let b = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)],
-            1.0,
-        );
+        let a = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)], 1.0);
+        let b = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)], 1.0);
         let bytes = fugues_to_smf(&[a, b], 120.0);
         let smf = parse_smf(&bytes);
         // Conductor + two untagged tracks (fugue-1, fugue-2).
@@ -965,13 +1068,21 @@ mod tests {
         // LCM(4, 8) = 8. The 4-beat fugue replicates twice, the 8-beat
         // fugue plays once — merged duration 8, 6 total events.
         let a = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 36, 100), TimedFugueEvent::note_off(1.0, 0, 36)],
+            vec![
+                TimedFugueEvent::note_on(0.0, 0, 36, 100),
+                TimedFugueEvent::note_off(1.0, 0, 36),
+            ],
             4.0,
-        ).with_tag("bass");
+        )
+        .with_tag("bass");
         let b = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(2.0, 0, 36, 100), TimedFugueEvent::note_off(3.0, 0, 36)],
+            vec![
+                TimedFugueEvent::note_on(2.0, 0, 36, 100),
+                TimedFugueEvent::note_off(3.0, 0, 36),
+            ],
             8.0,
-        ).with_tag("bass");
+        )
+        .with_tag("bass");
 
         let merged = merge_fugues_by_tag(&[a, b]);
         assert_eq!(merged.len(), 1);
@@ -990,14 +1101,12 @@ mod tests {
         // 4-bar bass + 16-bar melody → LCM 16. Bass plays 4×, melody 1×.
         // This is the "two loops at different resolutions" case the LLM
         // naturally writes and users expect to loop cleanly in the DAW.
-        let bass_4_beats = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 36, 100)],
-            4.0,
-        ).with_tag("bass");
-        let melody_16_beats = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)],
-            16.0,
-        ).with_tag("bass");  // Same tag so they merge.
+        let bass_4_beats =
+            FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 36, 100)], 4.0)
+                .with_tag("bass");
+        let melody_16_beats =
+            FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)], 16.0)
+                .with_tag("bass"); // Same tag so they merge.
 
         let merged = merge_fugues_by_tag(&[bass_4_beats, melody_16_beats]);
         assert_eq!(merged.len(), 1);
@@ -1007,14 +1116,24 @@ mod tests {
         let bass_beats: Vec<f64> = combined
             .events
             .iter()
-            .filter(|e| matches!(e.event, crate::fugue::types::FugueEvent::NoteOn { note: 36, .. }))
+            .filter(|e| {
+                matches!(
+                    e.event,
+                    crate::fugue::types::FugueEvent::NoteOn { note: 36, .. }
+                )
+            })
             .map(|e| e.beat_offset)
             .collect();
         assert_eq!(bass_beats, vec![0.0, 4.0, 8.0, 12.0]);
         let melody_beats: Vec<f64> = combined
             .events
             .iter()
-            .filter(|e| matches!(e.event, crate::fugue::types::FugueEvent::NoteOn { note: 60, .. }))
+            .filter(|e| {
+                matches!(
+                    e.event,
+                    crate::fugue::types::FugueEvent::NoteOn { note: 60, .. }
+                )
+            })
             .map(|e| e.beat_offset)
             .collect();
         assert_eq!(melody_beats, vec![0.0]);
@@ -1023,14 +1142,10 @@ mod tests {
     #[test]
     fn merge_lcm_coprime_durations_within_cap() {
         // 3 + 5 = LCM 15. Coprime but small enough to be under the cap.
-        let a = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)],
-            3.0,
-        ).with_tag("x");
-        let b = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)],
-            5.0,
-        ).with_tag("x");
+        let a = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)], 3.0)
+            .with_tag("x");
+        let b = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)], 5.0)
+            .with_tag("x");
         let merged = merge_fugues_by_tag(&[a, b]);
         assert_eq!(merged[0].duration_beats, 15.0);
         // a replicates 5×, b replicates 3×.
@@ -1042,14 +1157,10 @@ mod tests {
         // LCM(127, 128) = 16256 beats — far past the 128-beat cap. Both
         // members should replicate as many cycles as fit at 128 beats, with
         // events past the cap truncated. Neither silent-tails nor plays-once.
-        let a = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)],
-            127.0,
-        ).with_tag("x");
-        let b = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)],
-            128.0,
-        ).with_tag("x");
+        let a = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)], 127.0)
+            .with_tag("x");
+        let b = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)], 128.0)
+            .with_tag("x");
         let merged = merge_fugues_by_tag(&[a, b]);
         assert_eq!(merged[0].duration_beats, 128.0);
 
@@ -1073,14 +1184,10 @@ mod tests {
         // That exceeds cap (128). Clamp to 128, replicate short 128× — short
         // should still show up many times, not be dropped. Exercises the
         // truncate-instead-of-silence semantics end to end.
-        let short = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)],
-            1.0,
-        ).with_tag("x");
-        let long = FugueDefinition::new(
-            vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)],
-            131.0,
-        ).with_tag("x");
+        let short = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 60, 100)], 1.0)
+            .with_tag("x");
+        let long = FugueDefinition::new(vec![TimedFugueEvent::note_on(0.0, 0, 62, 100)], 131.0)
+            .with_tag("x");
         let merged = merge_fugues_by_tag(&[short, long]);
         assert_eq!(merged[0].duration_beats, 128.0);
         // short: 128 cycles at offsets 0..127, one event each = 128.
@@ -1145,14 +1252,24 @@ mod tests {
         // That one track should carry both the notes and the (densified)
         // CC stream. Check at least one of each survived the merge.
         let musical = &smf.tracks[1];
-        let has_note_on = musical.iter().any(|e| matches!(
-            e.kind,
-            TrackEventKind::Midi { message: MidiMessage::NoteOn { .. }, .. }
-        ));
-        let has_cc = musical.iter().any(|e| matches!(
-            e.kind,
-            TrackEventKind::Midi { message: MidiMessage::Controller { .. }, .. }
-        ));
+        let has_note_on = musical.iter().any(|e| {
+            matches!(
+                e.kind,
+                TrackEventKind::Midi {
+                    message: MidiMessage::NoteOn { .. },
+                    ..
+                }
+            )
+        });
+        let has_cc = musical.iter().any(|e| {
+            matches!(
+                e.kind,
+                TrackEventKind::Midi {
+                    message: MidiMessage::Controller { .. },
+                    ..
+                }
+            )
+        });
         assert!(has_note_on, "merged track missing note events");
         assert!(has_cc, "merged track missing CC events");
     }
@@ -1173,7 +1290,11 @@ mod tests {
         let a = FugueDefinition::new(vec![], 4.0).with_tag("a");
         let b = FugueDefinition::new(vec![], 4.0).with_tag("b");
         let merged = merge_all_fugues(&[a, b]).expect("non-empty input");
-        assert!(merged.tag.is_none(), "synthetic _merged tag leaked: {:?}", merged.tag);
+        assert!(
+            merged.tag.is_none(),
+            "synthetic _merged tag leaked: {:?}",
+            merged.tag
+        );
     }
 
     #[test]

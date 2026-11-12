@@ -20,7 +20,9 @@ use crate::fugue::{
     FugueInfoHandle, FugueSequencer, InterpolationExt, InterpolationMode, ProcessedEvent,
     TransportState,
 };
-use crate::mcp::{CcMessage, MidiMessage, NoteMessage, PerNoteExpressionMessage, PerNoteExpressionType};
+use crate::mcp::{
+    CcMessage, MidiMessage, NoteMessage, PerNoteExpressionMessage, PerNoteExpressionType,
+};
 use crate::{DropletMainThread, DropletShared};
 
 pub mod ports;
@@ -45,8 +47,18 @@ const UMP_OPCODE_PER_NOTE_MGMT: u8 = 0xF;
 const RPN_PER_NOTE_PRESSURE: u8 = 0x07;
 
 /// Build a MIDI 2.0 UMP packet for Note On/Off with 16-bit velocity
-fn build_ump_note(group: u8, channel: u8, note: u8, velocity_16bit: u16, is_note_on: bool) -> [u32; 4] {
-    let opcode = if is_note_on { UMP_OPCODE_NOTE_ON } else { UMP_OPCODE_NOTE_OFF };
+fn build_ump_note(
+    group: u8,
+    channel: u8,
+    note: u8,
+    velocity_16bit: u16,
+    is_note_on: bool,
+) -> [u32; 4] {
+    let opcode = if is_note_on {
+        UMP_OPCODE_NOTE_ON
+    } else {
+        UMP_OPCODE_NOTE_OFF
+    };
     let word1 = ((UMP_MSG_TYPE_MIDI2_CHANNEL_VOICE as u32) << 28)
         | ((group as u32 & 0x0F) << 24)
         | ((opcode as u32 & 0x0F) << 20)
@@ -77,7 +89,13 @@ fn build_ump_per_note_pitch_bend(group: u8, channel: u8, note: u8, value_32bit: 
 }
 
 /// Build a MIDI 2.0 UMP packet for Registered Per-Note Controller
-fn build_ump_reg_per_note_ctrl(group: u8, channel: u8, note: u8, index: u8, value_32bit: u32) -> [u32; 4] {
+fn build_ump_reg_per_note_ctrl(
+    group: u8,
+    channel: u8,
+    note: u8,
+    index: u8,
+    value_32bit: u32,
+) -> [u32; 4] {
     let word1 = ((UMP_MSG_TYPE_MIDI2_CHANNEL_VOICE as u32) << 28)
         | ((group as u32 & 0x0F) << 24)
         | ((UMP_OPCODE_REG_PER_NOTE_CTRL as u32) << 20)
@@ -88,7 +106,13 @@ fn build_ump_reg_per_note_ctrl(group: u8, channel: u8, note: u8, index: u8, valu
 }
 
 /// Build a MIDI 2.0 UMP packet for Assignable Per-Note Controller
-fn build_ump_assign_per_note_ctrl(group: u8, channel: u8, note: u8, index: u8, value_32bit: u32) -> [u32; 4] {
+fn build_ump_assign_per_note_ctrl(
+    group: u8,
+    channel: u8,
+    note: u8,
+    index: u8,
+    value_32bit: u32,
+) -> [u32; 4] {
     let word1 = ((UMP_MSG_TYPE_MIDI2_CHANNEL_VOICE as u32) << 28)
         | ((group as u32 & 0x0F) << 24)
         | ((UMP_OPCODE_ASSIGN_PER_NOTE_CTRL as u32) << 20)
@@ -183,22 +207,37 @@ impl<'a> PluginAudioProcessor<'a, DropletShared<'a>, DropletMainThread<'a>>
 
             // Forward MIDI 2.0 events
             if let Some(midi2) = event.as_event::<Midi2Event>() {
-                let _ = events.output.try_push(Midi2Event::new(time, 0, midi2.data()));
+                let _ = events
+                    .output
+                    .try_push(Midi2Event::new(time, 0, midi2.data()));
             }
 
             // Forward CLAP note events
             if let Some(note_on) = event.as_event::<NoteOnEvent>() {
-                let _ = events.output.try_push(NoteOnEvent::new(time, note_on.pckn(), note_on.velocity()));
+                let _ = events.output.try_push(NoteOnEvent::new(
+                    time,
+                    note_on.pckn(),
+                    note_on.velocity(),
+                ));
             }
 
             if let Some(note_off) = event.as_event::<NoteOffEvent>() {
-                let _ = events.output.try_push(NoteOffEvent::new(time, note_off.pckn(), note_off.velocity()));
+                let _ = events.output.try_push(NoteOffEvent::new(
+                    time,
+                    note_off.pckn(),
+                    note_off.velocity(),
+                ));
             }
 
             // Forward note expression events
             if let Some(expr) = event.as_event::<NoteExpressionEvent>() {
                 if let Some(expr_type) = expr.expression_type() {
-                    let _ = events.output.try_push(NoteExpressionEvent::new(time, expr.pckn(), expr_type, expr.value()));
+                    let _ = events.output.try_push(NoteExpressionEvent::new(
+                        time,
+                        expr.pckn(),
+                        expr_type,
+                        expr.value(),
+                    ));
                 }
             }
         }
@@ -223,9 +262,7 @@ impl<'a> PluginAudioProcessor<'a, DropletShared<'a>, DropletMainThread<'a>>
             .map(|t| t.song_pos_beats.to_float())
             .unwrap_or(0.0);
 
-        let tempo = transport
-            .map(|t| t.tempo)
-            .unwrap_or(120.0);
+        let tempo = transport.map(|t| t.tempo).unwrap_or(120.0);
 
         let time_sig_num = transport
             .map(|t| t.time_signature_numerator as u32)
@@ -249,13 +286,8 @@ impl<'a> PluginAudioProcessor<'a, DropletShared<'a>, DropletMainThread<'a>>
         // the `&self` in `output_processed_event` doesn't overlap with
         // any borrow of the sequencer. ProcessedEvent is Copy, so this
         // is a pure memcpy — no heap allocation.
-        self.fugue_sequencer.process(
-            is_playing,
-            current_beat,
-            tempo,
-            frames,
-            time_sig_num,
-        );
+        self.fugue_sequencer
+            .process(is_playing, current_beat, tempo, frames, time_sig_num);
         let event_count = self.fugue_sequencer.events().len();
         if event_count > 0 {
             has_midi = true;
@@ -324,7 +356,10 @@ impl<'a> DropletMidiProcessor<'a> {
     /// Output a ProcessedEvent (either instant or interpolated ramp)
     fn output_processed_event(&self, event: &ProcessedEvent, events: &mut Events) {
         match event {
-            ProcessedEvent::Instant { sample_offset, message } => {
+            ProcessedEvent::Instant {
+                sample_offset,
+                message,
+            } => {
                 self.output_midi_message(message, *sample_offset, events);
             }
             ProcessedEvent::CcRamp {
@@ -372,14 +407,24 @@ impl<'a> DropletMidiProcessor<'a> {
         // Stepped: single value at end. None-mode ramps are normally emitted as
         // Instant events upstream; this is the defensive path.
         if interpolation == InterpolationMode::None {
-            let cc_msg = CcMessage { channel, cc, value: end_value, value_14bit: None };
+            let cc_msg = CcMessage {
+                channel,
+                cc,
+                value: end_value,
+                value_14bit: None,
+            };
             self.output_cc_at(&cc_msg, end_sample, events);
             return;
         }
 
         let duration = end_sample.saturating_sub(start_sample);
         if duration == 0 {
-            let cc_msg = CcMessage { channel, cc, value: end_value, value_14bit: None };
+            let cc_msg = CcMessage {
+                channel,
+                cc,
+                value: end_value,
+                value_14bit: None,
+            };
             self.output_cc_at(&cc_msg, end_sample, events);
             return;
         }
@@ -391,10 +436,15 @@ impl<'a> DropletMidiProcessor<'a> {
             let sample = start_sample + (i * step_size).min(duration);
             let t = i as f64 / num_steps as f64;
             let tc = interpolation.apply_curve(t);
-            let value = (start_value as f64 + tc * (end_value as f64 - start_value as f64))
-                .round() as u8;
+            let value =
+                (start_value as f64 + tc * (end_value as f64 - start_value as f64)).round() as u8;
 
-            let cc_msg = CcMessage { channel, cc, value, value_14bit: None };
+            let cc_msg = CcMessage {
+                channel,
+                cc,
+                value,
+                value_14bit: None,
+            };
             self.output_cc_at(&cc_msg, sample, events);
         }
     }
@@ -404,7 +454,9 @@ impl<'a> DropletMidiProcessor<'a> {
         match msg {
             MidiMessage::Cc(cc) => self.output_cc_at(cc, sample_offset, events),
             MidiMessage::Note(note) => self.output_note_at(note, sample_offset, events),
-            MidiMessage::PerNoteExpression(expr) => self.output_per_note_expression_at(expr, sample_offset, events),
+            MidiMessage::PerNoteExpression(expr) => {
+                self.output_per_note_expression_at(expr, sample_offset, events)
+            }
         }
     }
 
@@ -413,7 +465,9 @@ impl<'a> DropletMidiProcessor<'a> {
         // MIDI 1.0: 3-byte CC message
         let status = 0xB0 | (cc.channel & 0x0F);
         let midi1_data = [status, cc.cc, cc.value];
-        let _ = events.output.try_push(MidiEvent::new(sample_offset, 0, midi1_data));
+        let _ = events
+            .output
+            .try_push(MidiEvent::new(sample_offset, 0, midi1_data));
 
         // MIDI 2.0: UMP with 32-bit CC value for high-resolution CLAP hosts
         let value_32bit = if let Some(val_14) = cc.value_14bit {
@@ -422,39 +476,80 @@ impl<'a> DropletMidiProcessor<'a> {
             let v = cc.value as u32;
             (v << 25) | (v << 18) | (v << 11) | (v << 4)
         };
-        let _ = events.output.try_push(Midi2Event::new(sample_offset, 0, build_ump_cc(0, cc.channel, cc.cc, value_32bit)));
+        let _ = events.output.try_push(Midi2Event::new(
+            sample_offset,
+            0,
+            build_ump_cc(0, cc.channel, cc.cc, value_32bit),
+        ));
     }
 
     /// Output a Note message as CLAP-native + MIDI 2.0 at sample offset
     fn output_note_at(&self, note: &NoteMessage, sample_offset: u32, events: &mut Events) {
         let velocity_f64 = note.velocity as f64 / 127.0;
-        let pckn = Pckn::new(0u16, note.channel as u16, note.note as u16, Match::<u32>::All);
+        let pckn = Pckn::new(
+            0u16,
+            note.channel as u16,
+            note.note as u16,
+            Match::<u32>::All,
+        );
 
         // CLAP-native: Translated to VST3 by clap_wrapper
         if note.is_note_on {
-            let _ = events.output.try_push(NoteOnEvent::new(sample_offset, pckn, velocity_f64));
+            let _ = events
+                .output
+                .try_push(NoteOnEvent::new(sample_offset, pckn, velocity_f64));
         } else {
-            let _ = events.output.try_push(NoteOffEvent::new(sample_offset, pckn, velocity_f64));
+            let _ = events
+                .output
+                .try_push(NoteOffEvent::new(sample_offset, pckn, velocity_f64));
         }
 
         // MIDI 2.0: High-resolution 16-bit velocity for CLAP hosts
-        let ump = build_ump_note(0, note.channel, note.note, note.velocity_16bit, note.is_note_on);
-        let _ = events.output.try_push(Midi2Event::new(sample_offset, 0, ump));
+        let ump = build_ump_note(
+            0,
+            note.channel,
+            note.note,
+            note.velocity_16bit,
+            note.is_note_on,
+        );
+        let _ = events
+            .output
+            .try_push(Midi2Event::new(sample_offset, 0, ump));
     }
 
     /// Output a per-note expression as CLAP-native + MIDI 2.0 at sample offset
-    fn output_per_note_expression_at(&self, expr: &PerNoteExpressionMessage, sample_offset: u32, events: &mut Events) {
-        let pckn = Pckn::new(0u16, expr.channel as u16, expr.note as u16, Match::<u32>::All);
+    fn output_per_note_expression_at(
+        &self,
+        expr: &PerNoteExpressionMessage,
+        sample_offset: u32,
+        events: &mut Events,
+    ) {
+        let pckn = Pckn::new(
+            0u16,
+            expr.channel as u16,
+            expr.note as u16,
+            Match::<u32>::All,
+        );
 
         // CLAP-native NoteExpressionEvent (for VST3 compatibility)
         match expr.expression_type {
             PerNoteExpressionType::PitchBend { value } => {
                 let normalized = (value as i64 - 0x80000000i64) as f64 / 0x80000000u32 as f64;
-                let _ = events.output.try_push(NoteExpressionEvent::new(sample_offset, pckn, NoteExpressionType::Tuning, normalized * 120.0));
+                let _ = events.output.try_push(NoteExpressionEvent::new(
+                    sample_offset,
+                    pckn,
+                    NoteExpressionType::Tuning,
+                    normalized * 120.0,
+                ));
             }
             PerNoteExpressionType::Pressure { value } => {
                 let normalized = value as f64 / u32::MAX as f64;
-                let _ = events.output.try_push(NoteExpressionEvent::new(sample_offset, pckn, NoteExpressionType::Pressure, normalized));
+                let _ = events.output.try_push(NoteExpressionEvent::new(
+                    sample_offset,
+                    pckn,
+                    NoteExpressionType::Pressure,
+                    normalized,
+                ));
             }
             _ => {}
         }
@@ -478,7 +573,9 @@ impl<'a> DropletMidiProcessor<'a> {
                 let pressure_7bit = (value >> 25) as u8; // u32 → 7-bit
                 let status = 0xA0 | (expr.channel & 0x0F);
                 let midi1_data = [status, expr.note & 0x7F, pressure_7bit & 0x7F];
-                let _ = events.output.try_push(MidiEvent::new(sample_offset, 0, midi1_data));
+                let _ = events
+                    .output
+                    .try_push(MidiEvent::new(sample_offset, 0, midi1_data));
             }
             PerNoteExpressionType::PitchBend { value } => {
                 // Map the 32-bit per-note bend into a 14-bit channel
@@ -487,10 +584,12 @@ impl<'a> DropletMidiProcessor<'a> {
                 let status = 0xE0 | (expr.channel & 0x0F);
                 let midi1_data = [
                     status,
-                    (bend_14bit & 0x7F) as u8,       // LSB
+                    (bend_14bit & 0x7F) as u8,        // LSB
                     ((bend_14bit >> 7) & 0x7F) as u8, // MSB
                 ];
-                let _ = events.output.try_push(MidiEvent::new(sample_offset, 0, midi1_data));
+                let _ = events
+                    .output
+                    .try_push(MidiEvent::new(sample_offset, 0, midi1_data));
             }
             _ => {}
         }
@@ -500,9 +599,13 @@ impl<'a> DropletMidiProcessor<'a> {
             PerNoteExpressionType::PitchBend { value } => {
                 build_ump_per_note_pitch_bend(0, expr.channel, expr.note, value)
             }
-            PerNoteExpressionType::Pressure { value } => {
-                build_ump_reg_per_note_ctrl(0, expr.channel, expr.note, RPN_PER_NOTE_PRESSURE, value)
-            }
+            PerNoteExpressionType::Pressure { value } => build_ump_reg_per_note_ctrl(
+                0,
+                expr.channel,
+                expr.note,
+                RPN_PER_NOTE_PRESSURE,
+                value,
+            ),
             PerNoteExpressionType::RegisteredController { index, value } => {
                 build_ump_reg_per_note_ctrl(0, expr.channel, expr.note, index, value)
             }
@@ -513,7 +616,8 @@ impl<'a> DropletMidiProcessor<'a> {
                 build_ump_per_note_mgmt(0, expr.channel, expr.note, flags)
             }
         };
-        let _ = events.output.try_push(Midi2Event::new(sample_offset, 0, ump));
+        let _ = events
+            .output
+            .try_push(Midi2Event::new(sample_offset, 0, ump));
     }
 }
-

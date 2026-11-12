@@ -2,12 +2,18 @@
 //!
 //! This delegates to the shared API handlers in api.rs
 
-use std::sync::Arc;
-use crate::params::DropletParams;
 use super::api;
+use crate::params::DropletParams;
+use std::sync::Arc;
 
 /// Route an API request to the appropriate handler
-pub fn handle_request(path: &str, method: &str, body: &[u8], params: &Arc<DropletParams>, instance_id: &str) -> String {
+pub fn handle_request(
+    path: &str,
+    method: &str,
+    body: &[u8],
+    params: &Arc<DropletParams>,
+    instance_id: &str,
+) -> String {
     match path {
         "/self" => handle_self(instance_id),
         "/slots" if method == "GET" => handle_slots(instance_id),
@@ -24,7 +30,9 @@ pub fn handle_request(path: &str, method: &str, body: &[u8], params: &Arc<Drople
         // POST endpoints
         "/queue_fugue" if method == "POST" => handle_queue_fugue(body, instance_id),
         "/cancel_fugue" if method == "POST" => handle_cancel_fugue(body, instance_id),
-        "/cancel_fugues_by_tag" if method == "POST" => handle_cancel_fugues_by_tag(body, instance_id),
+        "/cancel_fugues_by_tag" if method == "POST" => {
+            handle_cancel_fugues_by_tag(body, instance_id)
+        }
         "/rename_instance" if method == "POST" => handle_rename_instance(body),
         "/settings" if method == "POST" => handle_update_settings(body),
         "/export_fugue" if method == "POST" => handle_export_fugue(body, instance_id),
@@ -34,7 +42,13 @@ pub fn handle_request(path: &str, method: &str, body: &[u8], params: &Arc<Drople
     }
 }
 
-fn handle_dynamic_route(path: &str, method: &str, body: &[u8], instance: &str, params: &Arc<DropletParams>) -> String {
+fn handle_dynamic_route(
+    path: &str,
+    method: &str,
+    body: &[u8],
+    instance: &str,
+    params: &Arc<DropletParams>,
+) -> String {
     if let Some(slot_str) = path.strip_prefix("/start_learn/") {
         return handle_start_learn(slot_str, instance, params);
     }
@@ -122,8 +136,7 @@ fn handle_instances() -> String {
 /// has been pushed yet.
 fn handle_get_project_layout() -> String {
     let layout = crate::mcp::CcBridge::get_project_layout().unwrap_or_default();
-    serde_json::to_string(&layout)
-        .unwrap_or_else(|_| serialize_error("serialize failed"))
+    serde_json::to_string(&layout).unwrap_or_else(|_| serialize_error("serialize failed"))
 }
 
 /// `POST /api/project_layout` via the wry protocol. Mirrors the MCP server
@@ -229,7 +242,9 @@ fn handle_fugue_by_id(id_str: &str, instance: &str) -> String {
     };
 
     match api::get_fugue_by_id(instance, id) {
-        Ok(response) => serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed")),
+        Ok(response) => {
+            serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed"))
+        }
         Err(e) => serialize_error(&e),
     }
 }
@@ -240,12 +255,17 @@ fn handle_fugue_by_id(id_str: &str, instance: &str) -> String {
 
 fn handle_rename_instance(body: &[u8]) -> String {
     #[derive(serde::Deserialize)]
-    struct Req { instance: String, name: String }
+    struct Req {
+        instance: String,
+        name: String,
+    }
     let Ok(req) = serde_json::from_slice::<Req>(body) else {
         return serialize_error("invalid request body");
     };
     match api::rename_instance(&req.instance, &req.name) {
-        Ok(response) => serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed")),
+        Ok(response) => {
+            serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed"))
+        }
         Err(e) => serialize_error(&e),
     }
 }
@@ -335,7 +355,9 @@ fn handle_set_slot_cc(idx_str: &str, body: &[u8], instance: &str) -> String {
         return serialize_error("invalid slot index");
     };
     #[derive(serde::Deserialize)]
-    struct Req { cc: u8 }
+    struct Req {
+        cc: u8,
+    }
     let Ok(req) = serde_json::from_slice::<Req>(body) else {
         return serialize_error("invalid body");
     };
@@ -357,7 +379,9 @@ fn handle_rename_slot(idx_str: &str, body: &[u8], instance: &str) -> String {
         return serialize_error("invalid slot index");
     };
     #[derive(serde::Deserialize)]
-    struct Req { name: String }
+    struct Req {
+        name: String,
+    }
     let Ok(req) = serde_json::from_slice::<Req>(body) else {
         return serialize_error("invalid body");
     };
@@ -373,7 +397,9 @@ fn handle_set_slot_channel(idx_str: &str, body: &[u8], instance: &str) -> String
         return serialize_error("invalid slot index");
     };
     #[derive(serde::Deserialize)]
-    struct Req { channel: u8 }
+    struct Req {
+        channel: u8,
+    }
     let Ok(req) = serde_json::from_slice::<Req>(body) else {
         return serialize_error("invalid body");
     };
@@ -412,7 +438,8 @@ fn handle_get_settings() -> String {
 }
 
 fn handle_update_settings(body: &[u8]) -> String {
-    let Ok(req) = serde_json::from_slice::<crate::fugue::settings::UpdateSettingsRequest>(body) else {
+    let Ok(req) = serde_json::from_slice::<crate::fugue::settings::UpdateSettingsRequest>(body)
+    else {
         return serialize_error("invalid request body");
     };
 
@@ -471,7 +498,10 @@ fn handle_export_fugue(body: &[u8], instance: &str) -> String {
 
     let response = api::export_fugue(instance, req);
     if response.ok {
-        crate::logger::log_gui_event("export_fugue", response.path.as_deref().unwrap_or("success"));
+        crate::logger::log_gui_event(
+            "export_fugue",
+            response.path.as_deref().unwrap_or("success"),
+        );
     }
     serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed"))
 }
@@ -479,8 +509,8 @@ fn handle_export_fugue(body: &[u8], instance: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
     use crate::params::DropletParams;
+    use std::sync::Arc;
 
     #[test]
     fn post_slots_adds_slot() {
@@ -498,7 +528,10 @@ mod tests {
         // (which may fail at runtime if CcBridge isn't initialized, but that's expected
         // in a test environment; we're verifying the route is reachable)
         let parsed: serde_json::Value = serde_json::from_str(&response).unwrap();
-        assert_ne!(parsed["error"].as_str(), Some("not found"), 
-                   "POST /slots should route to handle_add_slot, not return 'not found'");
+        assert_ne!(
+            parsed["error"].as_str(),
+            Some("not found"),
+            "POST /slots should route to handle_add_slot, not return 'not found'"
+        );
     }
 }

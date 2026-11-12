@@ -33,7 +33,9 @@ pub struct OptionalInstanceRequest<T> {
     /// Instance name or id to scope to. Omit to operate on every
     /// connected Droplets instance.
     #[serde(default)]
-    #[schemars(description = "Optional instance name or id. Omit to operate on every connected Droplets instance.")]
+    #[schemars(
+        description = "Optional instance name or id. Omit to operate on every connected Droplets instance."
+    )]
     pub instance: Option<String>,
 
     /// The actual request data
@@ -45,25 +47,35 @@ pub struct OptionalInstanceRequest<T> {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct QueueFugueData {
     /// Array of fugues to queue. Each fugue is atomic.
-    #[schemars(description = "Array of fugues. Each is atomic - use separate fugues for notes, CC, and per-note expression so they can be updated independently.")]
+    #[schemars(
+        description = "Array of fugues. Each is atomic - use separate fugues for notes, CC, and per-note expression so they can be updated independently."
+    )]
     pub fugues: Vec<CompactFugue>,
 
     // Shared defaults (can be overridden per-fugue)
     /// Default quantize mode: "immediate", "beat", "bar", or "bars:N"
     #[serde(default = "default_quantize")]
-    #[schemars(description = "Default quantize: 'immediate', 'beat', 'bar', or 'bars:N' (default: 'bar')")]
+    #[schemars(
+        description = "Default quantize: 'immediate', 'beat', 'bar', or 'bars:N' (default: 'bar')"
+    )]
     pub quantize: Option<String>,
     /// Default duration in beats
     #[serde(default = "default_duration")]
-    #[schemars(description = "Default duration in beats. If omitted, duration is auto-sized to the smallest whole number of bars (4/4) that fits the content. Explicit values shorter than the content are also extended to fit — a duration that would truncate notes is almost always a bug.")]
+    #[schemars(
+        description = "Default duration in beats. If omitted, duration is auto-sized to the smallest whole number of bars (4/4) that fits the content. Explicit values shorter than the content are also extended to fit — a duration that would truncate notes is almost always a bug."
+    )]
     pub duration_beats: Option<f64>,
     /// Default loop mode: "once", "forever", or a number
     #[serde(default = "default_loop_mode_opt")]
-    #[schemars(description = "Default loop mode: 'once', 'forever', or a number (default: 'forever')")]
+    #[schemars(
+        description = "Default loop mode: 'once', 'forever', or a number (default: 'forever')"
+    )]
     pub loop_mode: Option<String>,
     /// Default start mode: "phase" (default) or "boundary"
     #[serde(default)]
-    #[schemars(description = "Default start mode: 'phase' (default — fugue joins the implicit song-grid at current phase) or 'boundary' (delay until next multiple of duration_beats, then play from pattern-beat-0).")]
+    #[schemars(
+        description = "Default start mode: 'phase' (default — fugue joins the implicit song-grid at current phase) or 'boundary' (delay until next multiple of duration_beats, then play from pattern-beat-0)."
+    )]
     pub start_mode: Option<String>,
 }
 
@@ -87,7 +99,9 @@ pub struct CancelFuguesByTagData {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetFugueData {
     /// Fugue ID to fetch (returned by queue_fugue / list_fugues).
-    #[schemars(description = "Fugue ID to fetch (the same id list_fugues and queue_fugue return).")]
+    #[schemars(
+        description = "Fugue ID to fetch (the same id list_fugues and queue_fugue return)."
+    )]
     pub id: u64,
 }
 
@@ -106,25 +120,33 @@ pub struct ImportFugueData {
     /// namespacing a batch so it can be cancelled later via
     /// `cancel_fugues_by_tag` with the same prefix.
     #[serde(default)]
-    #[schemars(description = "Optional prefix prepended to every imported fugue's tag (e.g. 'edited-' → 'edited-bass').")]
+    #[schemars(
+        description = "Optional prefix prepended to every imported fugue's tag (e.g. 'edited-' → 'edited-bass')."
+    )]
     pub tag_prefix: Option<String>,
 
     /// Loop policy applied to every imported fugue. Defaults to `forever`
     /// to match the LLM-facing queue_fugue default.
     #[serde(default)]
-    #[schemars(description = "Loop mode for the imported fugues. One of: once | times | forever. Default: forever.")]
+    #[schemars(
+        description = "Loop mode for the imported fugues. One of: once | times | forever. Default: forever."
+    )]
     pub loop_mode: Option<String>,
 
     /// Quantize policy applied to every imported fugue. Defaults to `bar`.
     #[serde(default)]
-    #[schemars(description = "Quantize mode for imported fugues: immediate | beat | bar. Default: bar.")]
+    #[schemars(
+        description = "Quantize mode for imported fugues: immediate | beat | bar. Default: bar."
+    )]
     pub quantize: Option<String>,
 
     /// When true, reject files containing per-note expression (pitch bend,
     /// polyphonic aftertouch) instead of silently dropping those events.
     /// Useful when the caller wants a hard guarantee of round-trip fidelity.
     #[serde(default)]
-    #[schemars(description = "Reject files containing per-note expression instead of dropping those events. Default: false.")]
+    #[schemars(
+        description = "Reject files containing per-note expression instead of dropping those events. Default: false."
+    )]
     pub strict: Option<bool>,
 }
 
@@ -161,7 +183,9 @@ pub struct GetSlotsRequest {
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct OptionalInstanceOnlyRequest {
     #[serde(default)]
-    #[schemars(description = "Optional instance name or id. Omit to operate on every connected Droplets instance.")]
+    #[schemars(
+        description = "Optional instance name or id. Omit to operate on every connected Droplets instance."
+    )]
     pub instance: Option<String>,
 }
 
@@ -214,4 +238,3 @@ pub(super) fn default_cancel_mode() -> Option<String> {
     // request-path default no longer needs to pre-populate "none".
     None
 }
-

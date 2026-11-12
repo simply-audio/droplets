@@ -14,8 +14,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use crate::fugue::{
-    CancelMode, FugueDefinition, FugueEvent, InterpolationMode, LoopMode, QuantizeMode,
-    StartMode, TimedFugueEvent,
+    CancelMode, FugueDefinition, FugueEvent, InterpolationMode, LoopMode, QuantizeMode, StartMode,
+    TimedFugueEvent,
 };
 
 use super::compact::{
@@ -253,9 +253,15 @@ pub fn compact_to_definition(
     compact: &CompactFugue,
     defaults: &QueueFugueDefaults,
 ) -> FugueDefinition {
-    let quantize_str = compact.quantize.as_deref().unwrap_or(&defaults.quantize_str);
+    let quantize_str = compact
+        .quantize
+        .as_deref()
+        .unwrap_or(&defaults.quantize_str);
     let explicit_duration = compact.duration_beats.or(defaults.duration_beats);
-    let loop_mode_str = compact.loop_mode.as_deref().unwrap_or(&defaults.loop_mode_str);
+    let loop_mode_str = compact
+        .loop_mode
+        .as_deref()
+        .unwrap_or(&defaults.loop_mode_str);
     let fugue_channel = compact.channel.unwrap_or(1).saturating_sub(1).min(15);
 
     let loop_mode = parse_loop_mode_str(loop_mode_str).unwrap_or(LoopMode::Loop);
@@ -294,20 +300,37 @@ pub fn compact_to_definition(
         FugueContent::Notes { notes } => {
             emit_notes(notes, fugue_channel, &mut events);
         }
-        FugueContent::Cc { cc, points, interpolation } => {
+        FugueContent::Cc {
+            cc,
+            points,
+            interpolation,
+        } => {
             let lane_mode = parse_interpolation_mode(interpolation.as_deref());
             cc_interpolation = lane_mode;
             emit_cc_lane(*cc, points, lane_mode, fugue_channel, &mut events);
         }
-        FugueContent::PerNotePitchBend { note, points, interpolation } => {
+        FugueContent::PerNotePitchBend {
+            note,
+            points,
+            interpolation,
+        } => {
             let default_mode = parse_interpolation_mode(interpolation.as_deref());
             emit_per_note_pitch_bend(note.0, points, default_mode, fugue_channel, &mut events);
         }
-        FugueContent::PerNotePressure { note, points, interpolation } => {
+        FugueContent::PerNotePressure {
+            note,
+            points,
+            interpolation,
+        } => {
             let default_mode = parse_interpolation_mode(interpolation.as_deref());
             emit_per_note_pressure(note.0, points, default_mode, fugue_channel, &mut events);
         }
-        FugueContent::Composite { notes, cc, pitch_bends, pressures } => {
+        FugueContent::Composite {
+            notes,
+            cc,
+            pitch_bends,
+            pressures,
+        } => {
             // One fugue, multiple concerns. Each sub-lane carries its own
             // interpolation mode and gets its curve stamped onto every
             // emitted event so different CC lanes can use different curves
@@ -319,17 +342,31 @@ pub fn compact_to_definition(
             }
             for lane in pitch_bends {
                 let lane_mode = parse_interpolation_mode(lane.interpolation.as_deref());
-                emit_per_note_pitch_bend(lane.note.0, &lane.points, lane_mode, fugue_channel, &mut events);
+                emit_per_note_pitch_bend(
+                    lane.note.0,
+                    &lane.points,
+                    lane_mode,
+                    fugue_channel,
+                    &mut events,
+                );
             }
             for lane in pressures {
                 let lane_mode = parse_interpolation_mode(lane.interpolation.as_deref());
-                emit_per_note_pressure(lane.note.0, &lane.points, lane_mode, fugue_channel, &mut events);
+                emit_per_note_pressure(
+                    lane.note.0,
+                    &lane.points,
+                    lane_mode,
+                    fugue_channel,
+                    &mut events,
+                );
             }
         }
     }
 
     events.sort_by(|a, b| {
-        a.beat_offset.partial_cmp(&b.beat_offset).unwrap_or(std::cmp::Ordering::Equal)
+        a.beat_offset
+            .partial_cmp(&b.beat_offset)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     // MPE remap: notes with a pitch-bend lane get moved onto dedicated
@@ -385,7 +422,7 @@ pub fn compact_to_definition(
 ///   single-channel base), leftover bent notes keep their original
 ///   channel and will cross-bend. Unlikely in practice; let it degrade.
 fn remap_mpe_channels(events: &mut [TimedFugueEvent]) {
-    use std::collections::{BTreeSet, BTreeMap};
+    use std::collections::{BTreeMap, BTreeSet};
 
     // 1. Collect bent (channel, note) keys.
     let mut bent: BTreeSet<(u8, u8)> = BTreeSet::new();
@@ -418,8 +455,7 @@ fn remap_mpe_channels(events: &mut [TimedFugueEvent]) {
     let mut allocated: [bool; 16] = [false; 16];
     let mut remap: BTreeMap<(u8, u8), u8> = BTreeMap::new();
     for key in bent.iter() {
-        let new_ch = (0u8..16)
-            .find(|ch| !reserved[*ch as usize] && !allocated[*ch as usize]);
+        let new_ch = (0u8..16).find(|ch| !reserved[*ch as usize] && !allocated[*ch as usize]);
         match new_ch {
             Some(ch) => {
                 allocated[ch as usize] = true;
@@ -519,7 +555,12 @@ pub fn definition_to_compact(def: &FugueDefinition) -> CompactFugue {
         match timed.event {
             // LLM-authored notes come back directly from TimedNote — the
             // round-trip is lossless because duration lives on the event.
-            FugueEvent::TimedNote { channel, note, velocity, duration_beats } => {
+            FugueEvent::TimedNote {
+                channel,
+                note,
+                velocity,
+                duration_beats,
+            } => {
                 push_compact_note(
                     &mut notes,
                     beat,
@@ -532,8 +573,15 @@ pub fn definition_to_compact(def: &FugueDefinition) -> CompactFugue {
             // Raw NoteOn / NoteOff survive for imports and other paths
             // that emit explicit on/off events; we still pair them here
             // to surface them as CompactNote on read-back.
-            FugueEvent::NoteOn { channel, note, velocity } => {
-                open_notes.entry((channel, note)).or_default().push_back((beat, velocity));
+            FugueEvent::NoteOn {
+                channel,
+                note,
+                velocity,
+            } => {
+                open_notes
+                    .entry((channel, note))
+                    .or_default()
+                    .push_back((beat, velocity));
             }
             FugueEvent::NoteOff { channel, note, .. } => {
                 if let Some(q) = open_notes.get_mut(&(channel, note)) {
@@ -542,35 +590,54 @@ pub fn definition_to_compact(def: &FugueDefinition) -> CompactFugue {
                     }
                 }
             }
-            FugueEvent::Cc { channel, controller, value, interpolation } => {
+            FugueEvent::Cc {
+                channel,
+                controller,
+                value,
+                interpolation,
+            } => {
                 let key = (channel, controller);
                 if !cc_lanes.contains_key(&key) {
                     cc_order.push(key);
                 }
-                cc_lanes
-                    .entry(key)
-                    .or_default()
-                    .push(point_with_curve(beat, value as f64, Some(interpolation), def.cc_interpolation));
+                cc_lanes.entry(key).or_default().push(point_with_curve(
+                    beat,
+                    value as f64,
+                    Some(interpolation),
+                    def.cc_interpolation,
+                ));
             }
-            FugueEvent::PerNotePitchBend { channel, note, semitones, .. } => {
+            FugueEvent::PerNotePitchBend {
+                channel,
+                note,
+                semitones,
+                ..
+            } => {
                 let key = (channel, note);
                 if !bend_lanes.contains_key(&key) {
                     bend_order.push(key);
                 }
-                bend_lanes
-                    .entry(key)
-                    .or_default()
-                    .push(Point { beat, value: semitones as f64, curve: None });
+                bend_lanes.entry(key).or_default().push(Point {
+                    beat,
+                    value: semitones as f64,
+                    curve: None,
+                });
             }
-            FugueEvent::PerNotePressure { channel, note, pressure, .. } => {
+            FugueEvent::PerNotePressure {
+                channel,
+                note,
+                pressure,
+                ..
+            } => {
                 let key = (channel, note);
                 if !pressure_lanes.contains_key(&key) {
                     pressure_order.push(key);
                 }
-                pressure_lanes
-                    .entry(key)
-                    .or_default()
-                    .push(Point { beat, value: pressure as f64, curve: None });
+                pressure_lanes.entry(key).or_default().push(Point {
+                    beat,
+                    value: pressure as f64,
+                    curve: None,
+                });
             }
             _ => {}
         }
@@ -639,17 +706,38 @@ mod tests {
     #[test]
     fn interpolation_parser_covers_all_modes() {
         assert_eq!(parse_interpolation_mode(None), InterpolationMode::Linear);
-        assert_eq!(parse_interpolation_mode(Some("linear")), InterpolationMode::Linear);
-        assert_eq!(parse_interpolation_mode(Some("exp")), InterpolationMode::Exp);
-        assert_eq!(parse_interpolation_mode(Some("log")), InterpolationMode::Log);
-        assert_eq!(parse_interpolation_mode(Some("none")), InterpolationMode::None);
+        assert_eq!(
+            parse_interpolation_mode(Some("linear")),
+            InterpolationMode::Linear
+        );
+        assert_eq!(
+            parse_interpolation_mode(Some("exp")),
+            InterpolationMode::Exp
+        );
+        assert_eq!(
+            parse_interpolation_mode(Some("log")),
+            InterpolationMode::Log
+        );
+        assert_eq!(
+            parse_interpolation_mode(Some("none")),
+            InterpolationMode::None
+        );
     }
 
     #[test]
     fn interpolation_parser_unknown_falls_back_to_linear() {
-        assert_eq!(parse_interpolation_mode(Some("bogus")), InterpolationMode::Linear);
-        assert_eq!(parse_interpolation_mode(Some("")), InterpolationMode::Linear);
-        assert_eq!(parse_interpolation_mode(Some("Linear")), InterpolationMode::Linear);
+        assert_eq!(
+            parse_interpolation_mode(Some("bogus")),
+            InterpolationMode::Linear
+        );
+        assert_eq!(
+            parse_interpolation_mode(Some("")),
+            InterpolationMode::Linear
+        );
+        assert_eq!(
+            parse_interpolation_mode(Some("Linear")),
+            InterpolationMode::Linear
+        );
     }
 
     // ------------------------------------------------------------------
@@ -737,10 +825,18 @@ mod tests {
         let def = compact_to_definition(&input, &defaults_bar_forever());
         let out = definition_to_compact(&def);
         match out.content {
-            FugueContent::Composite { notes, cc, pitch_bends, pressures } => {
+            FugueContent::Composite {
+                notes,
+                cc,
+                pitch_bends,
+                pressures,
+            } => {
                 assert!(!notes.is_empty(), "notes lane lost in round-trip");
                 assert!(!cc.is_empty(), "cc lane lost in round-trip");
-                assert!(!pitch_bends.is_empty(), "pitch_bends lane lost in round-trip");
+                assert!(
+                    !pitch_bends.is_empty(),
+                    "pitch_bends lane lost in round-trip"
+                );
                 assert!(!pressures.is_empty(), "pressures lane lost in round-trip");
             }
             _ => panic!("expected Composite read-back"),
@@ -863,7 +959,10 @@ mod tests {
             ],
         }));
         let def = compact_to_definition(&input, &defaults_unset_duration());
-        assert_eq!(def.duration_beats, 8.0, "7-beat content must live in an 8-beat pattern, not the explicit 4");
+        assert_eq!(
+            def.duration_beats, 8.0,
+            "7-beat content must live in an 8-beat pattern, not the explicit 4"
+        );
     }
 
     #[test]
@@ -897,7 +996,8 @@ mod tests {
         let out = definition_to_compact(&def);
         let json = serde_json::to_value(&out).expect("serialize typed compact");
         // Reparse the emitted JSON as a CompactFugue — round-trip symmetry.
-        let reparsed: CompactFugue = serde_json::from_value(json).expect("re-parse through CompactFugue");
+        let reparsed: CompactFugue =
+            serde_json::from_value(json).expect("re-parse through CompactFugue");
         match reparsed.content {
             FugueContent::Composite { notes, .. } => {
                 assert_eq!(notes.len(), 1);
@@ -934,7 +1034,9 @@ mod tests {
             .events
             .iter()
             .filter_map(|e| match e.event {
-                FugueEvent::PerNotePitchBend { channel, note: n, .. } if n == note => Some(channel),
+                FugueEvent::PerNotePitchBend {
+                    channel, note: n, ..
+                } if n == note => Some(channel),
                 _ => None,
             })
             .collect();
@@ -988,7 +1090,10 @@ mod tests {
         assert!(pairs.contains(&(0, 60)), "plain note 60 stays on channel 0");
         assert!(pairs.contains(&(0, 64)), "plain note 64 stays on channel 0");
         assert!(pairs.contains(&(1, 67)), "bent note 67 moves to channel 1");
-        assert!(!pairs.contains(&(0, 67)), "bent note 67 no longer on channel 0");
+        assert!(
+            !pairs.contains(&(0, 67)),
+            "bent note 67 no longer on channel 0"
+        );
 
         // And every pitch-bend event for note 67 carries the new channel.
         assert_eq!(bend_channels_for_note(&def, 67), vec![1]);
@@ -1091,7 +1196,9 @@ mod tests {
                 .events
                 .iter()
                 .filter_map(|e| match e.event {
-                    FugueEvent::PerNotePressure { channel, note: 64, .. } => Some(channel),
+                    FugueEvent::PerNotePressure {
+                        channel, note: 64, ..
+                    } => Some(channel),
                     _ => None,
                 })
                 .collect();
@@ -1099,7 +1206,14 @@ mod tests {
             chans.dedup();
             chans
         };
-        assert_eq!(bend_chans, pressure_chans, "pressure must track pitch-bend's new channel");
-        assert_ne!(bend_chans, vec![0], "bent voice should have been moved off the plain channel");
+        assert_eq!(
+            bend_chans, pressure_chans,
+            "pressure must track pitch-bend's new channel"
+        );
+        assert_ne!(
+            bend_chans,
+            vec![0],
+            "bent voice should have been moved off the plain channel"
+        );
     }
 }

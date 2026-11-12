@@ -41,6 +41,6 @@ pub use request::{
     OptionalInstanceRequest, QueueFugueData, QueueFugueRequest, RenameInstanceRequest,
 };
 pub use response::{
-    GetFugueResponse, InstanceHandle, ListFuguesResponse, ListInstancesResponse,
-    ListSlotsResponse, ListedFugue, QueueFugueSummary,
+    GetFugueResponse, InstanceHandle, ListFuguesResponse, ListInstancesResponse, ListSlotsResponse,
+    ListedFugue, QueueFugueSummary,
 };

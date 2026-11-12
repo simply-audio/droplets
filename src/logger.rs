@@ -30,19 +30,21 @@ pub fn init_logger() {
         // handshake — wasteful on disk. Our wrapper in `src/mcp/mod.rs`
         // already logs method / URI / status for request/response, which
         // is what we actually want.
-        let config = ConfigBuilder::new()
-            .add_filter_ignore_str("rmcp")
-            .build();
+        let config = ConfigBuilder::new().add_filter_ignore_str("rmcp").build();
 
         let _ = WriteLogger::init(
             LevelFilter::Debug,
             config,
-            File::create(&log_path).unwrap_or_else(|_| File::create("/tmp/droplets_plugin.log").unwrap()),
+            File::create(&log_path)
+                .unwrap_or_else(|_| File::create("/tmp/droplets_plugin.log").unwrap()),
         );
 
         // Set up custom panic hook to log panics instead of aborting
         std::panic::set_hook(Box::new(|panic_info| {
-            let location = panic_info.location().map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column())).unwrap_or_else(|| "unknown".to_string());
+            let location = panic_info
+                .location()
+                .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                .unwrap_or_else(|| "unknown".to_string());
             let message = if let Some(s) = panic_info.payload().downcast_ref::<&str>() {
                 s.to_string()
             } else if let Some(s) = panic_info.payload().downcast_ref::<String>() {

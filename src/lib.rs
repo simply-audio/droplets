@@ -1,7 +1,7 @@
 use clack_extensions::{audio_ports::*, gui::*, note_ports::*, params::*, state::*};
-use clack_plugin::stream::{InputStream, OutputStream};
-use clack_plugin::prelude::*;
 use clack_plugin::plugin::features::*;
+use clack_plugin::prelude::*;
+use clack_plugin::stream::{InputStream, OutputStream};
 use crossbeam::channel::{Receiver, Sender};
 use rtrb::Consumer;
 use std::sync::Arc;
@@ -13,12 +13,12 @@ use mcp::{CcBridge, MidiMessage};
 use midi::DropletMidiProcessor;
 use params::DropletParams;
 
-mod midi;
 pub mod fugue;
 pub mod gui;
 pub mod instance_param;
 pub mod logger;
 pub mod mcp;
+mod midi;
 pub mod params;
 
 /// Serde helper for serializing u64 as string (for JS BigInt compatibility)
@@ -48,7 +48,10 @@ impl Plugin for DropletPlugin {
     type Shared<'a> = DropletShared<'a>;
     type MainThread<'a> = DropletMainThread<'a>;
 
-    fn declare_extensions(builder: &mut PluginExtensions<Self>, _shared: Option<&Self::Shared<'_>>) {
+    fn declare_extensions(
+        builder: &mut PluginExtensions<Self>,
+        _shared: Option<&Self::Shared<'_>>,
+    ) {
         builder
             .register::<PluginAudioPorts>()
             .register::<PluginNotePorts>()
@@ -88,8 +91,8 @@ impl DefaultPluginFactory for DropletPlugin {
             env!("DROPLETS_CLAP_BUNDLE_ID"),
             env!("DROPLETS_DISPLAY_NAME"),
         )
-            .with_vendor(env!("DROPLETS_VENDOR"))
-            .with_features(features)
+        .with_vendor(env!("DROPLETS_VENDOR"))
+        .with_features(features)
     }
 
     fn new_shared(host: HostSharedHandle<'_>) -> Result<Self::Shared<'_>, PluginError> {
@@ -127,7 +130,6 @@ impl DefaultPluginFactory for DropletPlugin {
         _host: HostMainThreadHandle<'a>,
         shared: &'a Self::Shared<'a>,
     ) -> Result<Self::MainThread<'a>, PluginError> {
-        
         Ok(Self::MainThread {
             shared,
             gui: DropletGui::new(),
@@ -238,18 +240,23 @@ impl<'a> PluginStateImpl for DropletMainThread<'a> {
             "custom_instructions": custom_instructions,
         });
 
-        let json = serde_json::to_vec(&state).map_err(|_| PluginError::Message("serialize failed"))?;
-        output.write_all(&json).map_err(|_| PluginError::Message("write failed"))?;
+        let json =
+            serde_json::to_vec(&state).map_err(|_| PluginError::Message("serialize failed"))?;
+        output
+            .write_all(&json)
+            .map_err(|_| PluginError::Message("write failed"))?;
         Ok(())
     }
 
     fn load(&mut self, input: &mut InputStream) -> Result<(), PluginError> {
+        use params::CcSlot;
         use std::io::Read;
         use std::sync::Arc;
-        use params::CcSlot;
 
         let mut data = Vec::new();
-        input.read_to_end(&mut data).map_err(|_| PluginError::Message("read failed"))?;
+        input
+            .read_to_end(&mut data)
+            .map_err(|_| PluginError::Message("read failed"))?;
 
         let state: serde_json::Value = serde_json::from_slice(&data)
             .map_err(|_| PluginError::Message("deserialize failed"))?;
@@ -258,7 +265,11 @@ impl<'a> PluginStateImpl for DropletMainThread<'a> {
         let slot_array = if state.is_array() {
             state.as_array().unwrap().clone()
         } else {
-            state.get("slots").and_then(|v| v.as_array()).cloned().unwrap_or_default()
+            state
+                .get("slots")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default()
         };
 
         // Rebuild slot list from the persisted array. Slots are dynamic now,

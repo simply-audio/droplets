@@ -12,13 +12,12 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR not set by cargo");
+    let manifest_dir =
+        std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set by cargo");
     let cargo_toml_path = PathBuf::from(&manifest_dir).join("Cargo.toml");
     println!("cargo:rerun-if-changed={}", cargo_toml_path.display());
 
-    let text = fs::read_to_string(&cargo_toml_path)
-        .expect("failed to read Cargo.toml");
+    let text = fs::read_to_string(&cargo_toml_path).expect("failed to read Cargo.toml");
 
     let section = extract_section(&text, "package.metadata.bundle")
         .expect("Cargo.toml missing [package.metadata.bundle] section");
@@ -63,7 +62,9 @@ fn extract_string(section: &str, key: &str) -> Option<String> {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        let Some((k, rest)) = line.split_once('=') else { continue };
+        let Some((k, rest)) = line.split_once('=') else {
+            continue;
+        };
         if k.trim() != key {
             continue;
         }

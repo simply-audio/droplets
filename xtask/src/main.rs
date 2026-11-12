@@ -1,8 +1,8 @@
+use clap::{Parser, Subcommand, ValueEnum};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(name = "xtask")]
@@ -218,9 +218,7 @@ impl BundleInfo {
             .metadata
             .as_ref()
             .and_then(|m| m.get("bundle"))
-            .ok_or_else(|| {
-                anyhow::anyhow!("[package.metadata.bundle] missing from Cargo.toml")
-            })?;
+            .ok_or_else(|| anyhow::anyhow!("[package.metadata.bundle] missing from Cargo.toml"))?;
 
         let get_str = |key: &str| -> anyhow::Result<String> {
             bundle
@@ -256,10 +254,19 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build { profile, format, dev_gui } => {
+        Commands::Build {
+            profile,
+            format,
+            dev_gui,
+        } => {
             build(profile, format, dev_gui)?;
         }
-        Commands::Install { skip_build, profile, format, dev_gui } => {
+        Commands::Install {
+            skip_build,
+            profile,
+            format,
+            dev_gui,
+        } => {
             if !skip_build {
                 build(profile, format, dev_gui)?;
             }
@@ -296,7 +303,9 @@ fn standalone(profile: Profile, extra: Vec<String>) -> anyhow::Result<()> {
     }
     let status = cmd.status()?;
     if !status.success() {
-        return Err(anyhow::anyhow!("standalone binary exited with non-zero status"));
+        return Err(anyhow::anyhow!(
+            "standalone binary exited with non-zero status"
+        ));
     }
     Ok(())
 }
@@ -463,11 +472,13 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> anyhow::Result<()> {
 
 fn project_root() -> anyhow::Result<PathBuf> {
     let current_dir = env::current_dir()?;
-    Ok(if current_dir.file_name().and_then(|n| n.to_str()) == Some("xtask") {
-        current_dir.parent().unwrap().to_path_buf()
-    } else {
-        current_dir
-    })
+    Ok(
+        if current_dir.file_name().and_then(|n| n.to_str()) == Some("xtask") {
+            current_dir.parent().unwrap().to_path_buf()
+        } else {
+            current_dir
+        },
+    )
 }
 
 fn gen_types() -> anyhow::Result<()> {
@@ -532,7 +543,11 @@ fn build_frontend() -> anyhow::Result<()> {
 
 /// npm ships as `npm.cmd` on Windows; `npm` on Unix.
 fn npm_cmd() -> &'static str {
-    if cfg!(windows) { "npm.cmd" } else { "npm" }
+    if cfg!(windows) {
+        "npm.cmd"
+    } else {
+        "npm"
+    }
 }
 
 fn build_plugin(profile: &str, dev_gui: bool) -> anyhow::Result<()> {
@@ -616,13 +631,19 @@ fn create_vst3_bundle(
             let arch_dir = bundle_path.join("Contents").join(host.vst3_arch_subdir());
             fs::create_dir_all(&arch_dir)?;
             // Per VST3 spec, the inner .so mirrors the bundle name (with .so)
-            fs::copy(dylib_src, arch_dir.join(format!("{}.so", info.display_name)))?;
+            fs::copy(
+                dylib_src,
+                arch_dir.join(format!("{}.so", info.display_name)),
+            )?;
         }
         HostOs::Windows => {
             let arch_dir = bundle_path.join("Contents").join(host.vst3_arch_subdir());
             fs::create_dir_all(&arch_dir)?;
             // Per VST3 spec, the inner module has a .vst3 extension (a renamed DLL)
-            fs::copy(dylib_src, arch_dir.join(format!("{}.vst3", info.display_name)))?;
+            fs::copy(
+                dylib_src,
+                arch_dir.join(format!("{}.vst3", info.display_name)),
+            )?;
         }
     }
     println!("Created VST3 bundle at: {}", bundle_path.display());

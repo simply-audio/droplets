@@ -137,10 +137,7 @@ pub fn configure_webview<'a>(
                     own_instance_id.clone()
                 } else {
                     uri.query()
-                        .and_then(|q| {
-                            q.split('&')
-                                .find_map(|pair| pair.strip_prefix("instance="))
-                        })
+                        .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("instance=")))
                         .map(simple_percent_decode)
                         .unwrap_or_else(|| own_instance_id.clone())
                 };
@@ -168,7 +165,8 @@ pub fn configure_webview<'a>(
                 }
 
                 // Handle API requests
-                let response_body = routes::handle_request(path, method, body, &params, &instance_id);
+                let response_body =
+                    routes::handle_request(path, method, body, &params, &instance_id);
                 let response = Response::builder()
                     .header(CONTENT_TYPE, "application/json")
                     .header("Access-Control-Allow-Origin", "*")
@@ -248,11 +246,7 @@ pub fn configure_webview<'a>(
 /// starts a native OS drag with that file. On Linux (drag unsupported) or
 /// drag failure, reveals the file in the user's file manager so the user
 /// can drag it from there (Feature 15b.5 fallback).
-fn handle_start_drag(
-    drag_state: &DragState,
-    own_instance_id: &str,
-    payload: &serde_json::Value,
-) {
+fn handle_start_drag(drag_state: &DragState, own_instance_id: &str, payload: &serde_json::Value) {
     use crate::fugue::{export, FugueBridge};
 
     // Which instance to export from? Defaults to the webview's own.
@@ -326,10 +320,14 @@ fn handle_start_drag(
         .unwrap_or(0);
     let path = std::env::temp_dir().join(format!("droplets-{}.mid", ts));
     if let Err(e) = std::fs::write(&path, &bytes) {
-        log::warn!("start_drag: failed to write temp .mid {}: {}", path.display(), e);
+        log::warn!(
+            "start_drag: failed to write temp .mid {}: {}",
+            path.display(),
+            e
+        );
         return;
     }
-    
+
     // Drag, with file-manager reveal as fallback.
     match drag::start_file_drag(drag_state, path.clone()) {
         drag::DragStart::Started => {

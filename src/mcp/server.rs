@@ -6,22 +6,21 @@
 //! module only wires the tools to the bridges.
 
 use rmcp::{
-    ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::router::tool::ToolRouter,
     handler::server::tool::ToolCallContext,
     handler::server::wrapper::{Json, Parameters},
     model::*,
-    tool, tool_router,
     service::RequestContext,
+    tool, tool_router, ErrorData as McpError, RoleServer, ServerHandler,
 };
 
 use super::bridge::CcBridge;
 use super::types::{
+    compact_to_definition, definition_to_compact, parse_loop_mode_str, parse_quantize_str,
     CancelFugueRequest, CancelFuguesByTagRequest, ClearFuguesRequest, GetFugueRequest,
     GetFugueResponse, GetSlotsRequest, ImportFugueRequest, InstanceHandle, ListFuguesRequest,
-    ListFuguesResponse, ListInstancesResponse, ListSlotsResponse, ListedFugue,
-    QueueFugueDefaults, QueueFugueRequest, QueueFugueSummary, RenameInstanceRequest,
-    compact_to_definition, definition_to_compact, parse_loop_mode_str, parse_quantize_str,
+    ListFuguesResponse, ListInstancesResponse, ListSlotsResponse, ListedFugue, QueueFugueDefaults,
+    QueueFugueRequest, QueueFugueSummary, RenameInstanceRequest,
 };
 use crate::fugue::FugueBridge;
 
@@ -48,7 +47,9 @@ impl Default for DropletsMcp {
 #[tool_router]
 impl DropletsMcp {
     /// List all connected Droplets plugin instances.
-    #[tool(description = "List all connected Droplets plugin instances. Returns `{ instances: [{ id, name }, …] }`. Use the names or ids to target a specific instance when queueing fugues.")]
+    #[tool(
+        description = "List all connected Droplets plugin instances. Returns `{ instances: [{ id, name }, …] }`. Use the names or ids to target a specific instance when queueing fugues."
+    )]
     fn list_instances(&self) -> Json<ListInstancesResponse> {
         Json(ListInstancesResponse {
             instances: CcBridge::list_instances()
@@ -59,7 +60,9 @@ impl DropletsMcp {
     }
 
     /// Rename a plugin instance for easier reference.
-    #[tool(description = "Rename a Droplets instance for easier reference. Use names like 'bass', 'pad', 'lead' to make targeting clearer.")]
+    #[tool(
+        description = "Rename a Droplets instance for easier reference. Use names like 'bass', 'pad', 'lead' to make targeting clearer."
+    )]
     fn set_instance_name(
         &self,
         Parameters(req): Parameters<RenameInstanceRequest>,
@@ -70,7 +73,9 @@ impl DropletsMcp {
     }
 
     /// List all parameter slots for an instance with their names, CC mappings, and current values.
-    #[tool(description = "List all parameter slots for an instance with their names, CC mappings, and values. Returns `{ slots: [...] }`. Shows which slots are mapped to MIDI CC and can output CC when set.")]
+    #[tool(
+        description = "List all parameter slots for an instance with their names, CC mappings, and values. Returns `{ slots: [...] }`. Shows which slots are mapped to MIDI CC and can output CC when set."
+    )]
     fn list_slots(
         &self,
         Parameters(req): Parameters<GetSlotsRequest>,
@@ -85,7 +90,9 @@ impl DropletsMcp {
     // =========================================================================
 
     /// Queue one or more fugues for transport-synchronized playback.
-    #[tool(description = "Queue fugues for transport-synced playback. See tool description for the full spec (content types, points shape, curves, worked examples).")]
+    #[tool(
+        description = "Queue fugues for transport-synced playback. See tool description for the full spec (content types, points shape, curves, worked examples)."
+    )]
     fn queue_fugue(
         &self,
         Parameters(req): Parameters<QueueFugueRequest>,
@@ -124,7 +131,9 @@ impl DropletsMcp {
     }
 
     /// List all active and pending fugues across one or every instance.
-    #[tool(description = "List active and pending fugues. Returns `{ fugues: [...] }`. Omit `instance` to list across every connected Droplets instance; pass a name or id to scope to one. Each row carries its own `instance_id` + `instance_name`, so follow-up calls (cancel_fugue, get_fugue) don't need a second list_instances hop.")]
+    #[tool(
+        description = "List active and pending fugues. Returns `{ fugues: [...] }`. Omit `instance` to list across every connected Droplets instance; pass a name or id to scope to one. Each row carries its own `instance_id` + `instance_name`, so follow-up calls (cancel_fugue, get_fugue) don't need a second list_instances hop."
+    )]
     fn list_fugues(
         &self,
         Parameters(req): Parameters<ListFuguesRequest>,
@@ -158,17 +167,21 @@ impl DropletsMcp {
     /// Fetch one fugue's current definition — notes, CC lanes, per-note
     /// expression lanes, loop/tag/quantize metadata. Enables a read-modify-write
     /// pattern: read a fugue, mutate one lane, re-queue with the same tag.
-    #[tool(description = "Fetch a single fugue's full content by ID. Returns the fugue in the same compact lane-grouped form the LLM writes to queue_fugue (notes + cc + pitch_bends + pressures), with the `id` included — read a fugue, mutate one lane, and re-queue with the same tag + cancel_mode:'tag:...' to replace it.")]
+    #[tool(
+        description = "Fetch a single fugue's full content by ID. Returns the fugue in the same compact lane-grouped form the LLM writes to queue_fugue (notes + cc + pitch_bends + pressures), with the `id` included — read a fugue, mutate one lane, and re-queue with the same tag + cancel_mode:'tag:...' to replace it."
+    )]
     fn get_fugue(
         &self,
         Parameters(req): Parameters<GetFugueRequest>,
     ) -> Result<Json<GetFugueResponse>, String> {
         let def = FugueBridge::get_definition(&req.instance, req.data.id)
             .map_err(|e| e.to_string())?
-            .ok_or_else(|| format!(
-                "No fugue with id {} on instance '{}'. Call list_fugues to see active IDs.",
-                req.data.id, req.instance
-            ))?;
+            .ok_or_else(|| {
+                format!(
+                    "No fugue with id {} on instance '{}'. Call list_fugues to see active IDs.",
+                    req.data.id, req.instance
+                )
+            })?;
         Ok(Json(GetFugueResponse {
             id: def.id.to_string(),
             fugue: definition_to_compact(&def),
@@ -176,12 +189,14 @@ impl DropletsMcp {
     }
 
     /// Import a `.mid` file as one or more fugues queued on an instance.
-    #[tool(description = "Import a Standard MIDI File as fugues on an instance. The body must be base64-encoded SMF bytes. Each MIDI track becomes one fugue (format 0 files produce one fugue). Track names become fugue tags (with optional `tag_prefix` prepended); tracks without names get synthetic `imported-N` tags. Notes + CC are preserved exactly; per-note pitch bend and polyphonic aftertouch are dropped because MIDI 1.0 can't represent them per-note (set `strict: true` to error instead). Returns the queued fugue IDs. Typical workflow: user drags a .mid out of a DAW, edits it in the piano roll, and hands it back to the LLM who imports it as the new canonical version of a part.")]
+    #[tool(
+        description = "Import a Standard MIDI File as fugues on an instance. The body must be base64-encoded SMF bytes. Each MIDI track becomes one fugue (format 0 files produce one fugue). Track names become fugue tags (with optional `tag_prefix` prepended); tracks without names get synthetic `imported-N` tags. Notes + CC are preserved exactly; per-note pitch bend and polyphonic aftertouch are dropped because MIDI 1.0 can't represent them per-note (set `strict: true` to error instead). Returns the queued fugue IDs. Typical workflow: user drags a .mid out of a DAW, edits it in the piano roll, and hands it back to the LLM who imports it as the new canonical version of a part."
+    )]
     fn import_fugue(
         &self,
         Parameters(req): Parameters<ImportFugueRequest>,
     ) -> Result<Json<crate::gui::api::ImportFugueResponse>, String> {
-        use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+        use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
         let bytes = B64
             .decode(req.data.base64_mid.as_bytes())
             .map_err(|e| format!("failed to decode base64 payload: {}", e))?;
@@ -202,7 +217,9 @@ impl DropletsMcp {
     }
 
     /// Cancel a specific fugue by ID, searching every instance if unscoped.
-    #[tool(description = "Cancel a fugue by ID. Omit `instance` to search every connected instance for the id (fugue ids are globally unique); pass a name or id to scope. Sends note-offs for any active notes and stops playback.")]
+    #[tool(
+        description = "Cancel a fugue by ID. Omit `instance` to search every connected instance for the id (fugue ids are globally unique); pass a name or id to scope. Sends note-offs for any active notes and stops playback."
+    )]
     fn cancel_fugue(
         &self,
         Parameters(req): Parameters<CancelFugueRequest>,
@@ -238,7 +255,9 @@ impl DropletsMcp {
     }
 
     /// Cancel fugues by tag across one or every instance.
-    #[tool(description = "Cancel all fugues with a matching tag. Omit `instance` to cancel across every connected instance; pass a name or id to scope. Sends note-offs for any active notes.")]
+    #[tool(
+        description = "Cancel all fugues with a matching tag. Omit `instance` to cancel across every connected instance; pass a name or id to scope. Sends note-offs for any active notes."
+    )]
     fn cancel_fugues_by_tag(
         &self,
         Parameters(req): Parameters<CancelFuguesByTagRequest>,
@@ -272,7 +291,9 @@ impl DropletsMcp {
     }
 
     /// Emergency stop — clear all fugues on one or every instance.
-    #[tool(description = "Emergency stop: cancel every fugue. Omit `instance` to clear across every connected instance; pass a name or id to scope. Sends note-offs for all active notes and empties the queue.")]
+    #[tool(
+        description = "Emergency stop: cancel every fugue. Omit `instance` to clear across every connected instance; pass a name or id to scope. Sends note-offs for all active notes and empties the queue."
+    )]
     fn clear_fugues(
         &self,
         Parameters(req): Parameters<ClearFuguesRequest>,
@@ -295,11 +316,16 @@ impl DropletsMcp {
         if !errors.is_empty() {
             return Err(errors.join("; "));
         }
-        Ok(format!("Cleared all fugues across {} instance(s)", targets.len()))
+        Ok(format!(
+            "Cleared all fugues across {} instance(s)",
+            targets.len()
+        ))
     }
 
     /// Get the current DAW transport state for an instance.
-    #[tool(description = "Get the current DAW transport state for an instance: {beat, tempo, playing, time_sig_numerator, is_looping, loop_start_beat, loop_end_beat}. Use this to reason about where we are in the song before scheduling — e.g. 'queue starting at bar 8, we're on bar 6 now'. In standalone mode, reports the simulated 120 BPM always-playing transport.")]
+    #[tool(
+        description = "Get the current DAW transport state for an instance: {beat, tempo, playing, time_sig_numerator, is_looping, loop_start_beat, loop_end_beat}. Use this to reason about where we are in the song before scheduling — e.g. 'queue starting at bar 8, we're on bar 6 now'. In standalone mode, reports the simulated 120 BPM always-playing transport."
+    )]
     fn get_transport(
         &self,
         Parameters(req): Parameters<GetSlotsRequest>,
@@ -311,7 +337,9 @@ impl DropletsMcp {
 
     /// Get the minimal project-state summary — which Droplets instances are
     /// connected and what each track's primary sound source is.
-    #[tool(description = "Call this FIRST when composing. Returns a compact summary of which Droplets instances are connected, their track names, each track's primary device, per-instance slot hints, and the user's current `custom_instructions` from the Settings tab (refreshed on each call — edits land here without needing to restart the session). For drum tracks, includes pad notes (as pitch notation like 'C2') with pad names and loaded sample names — so you can write a drum pattern with correct note mapping instead of guessing GM conventions. For synth tracks, includes the instrument name and preset. If `layout_available` is false, no host controller extension is running (e.g. Ableton without the script); fall back to asking the user or GM conventions.")]
+    #[tool(
+        description = "Call this FIRST when composing. Returns a compact summary of which Droplets instances are connected, their track names, each track's primary device, per-instance slot hints, and the user's current `custom_instructions` from the Settings tab (refreshed on each call — edits land here without needing to restart the session). For drum tracks, includes pad notes (as pitch notation like 'C2') with pad names and loaded sample names — so you can write a drum pattern with correct note mapping instead of guessing GM conventions. For synth tracks, includes the instrument name and preset. If `layout_available` is false, no host controller extension is running (e.g. Ableton without the script); fall back to asking the user or GM conventions."
+    )]
     fn get_project_state(&self) -> Json<super::project::ProjectState> {
         let layout = CcBridge::get_project_layout();
         let instances = CcBridge::list_instances();
@@ -328,9 +356,7 @@ impl ServerHandler for DropletsMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder()
-                .enable_tools()
-                .build(),
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation::from_build_env(),
             // The MCP system prompt base lives in instructions.md next to
             // this file — edit there, not here. User-authored custom context
@@ -355,12 +381,12 @@ impl ServerHandler for DropletsMcp {
         // so we stamp the real markdown content over the stub description
         // here. Add a row to the table below when you promote a tool to a
         // markdown file.
-        const TOOL_DESCRIPTIONS: &[(&str, &str)] = &[
-            ("queue_fugue", include_str!("tools/queue_fugue.md")),
-        ];
+        const TOOL_DESCRIPTIONS: &[(&str, &str)] =
+            &[("queue_fugue", include_str!("tools/queue_fugue.md"))];
         for tool in &mut tools {
-            if let Some(&(_, desc)) =
-                TOOL_DESCRIPTIONS.iter().find(|(name, _)| *name == tool.name.as_ref())
+            if let Some(&(_, desc)) = TOOL_DESCRIPTIONS
+                .iter()
+                .find(|(name, _)| *name == tool.name.as_ref())
             {
                 tool.description = Some(desc.into());
             }
@@ -482,8 +508,14 @@ mod sanitizer_tests {
             ]
         });
         sanitize_schema_in_place(&mut v);
-        assert_eq!(v["oneOf"][0]["properties"]["type"], json!({ "enum": ["a"] }));
-        assert_eq!(v["oneOf"][1]["properties"]["type"], json!({ "enum": ["b"] }));
+        assert_eq!(
+            v["oneOf"][0]["properties"]["type"],
+            json!({ "enum": ["a"] })
+        );
+        assert_eq!(
+            v["oneOf"][1]["properties"]["type"],
+            json!({ "enum": ["b"] })
+        );
     }
 
     #[test]
@@ -493,7 +525,10 @@ mod sanitizer_tests {
             "prefixItems": [{ "type": "number" }, { "type": "string" }]
         });
         sanitize_schema_in_place(&mut v);
-        assert!(v.get("prefixItems").is_none(), "prefixItems should be dropped");
+        assert!(
+            v.get("prefixItems").is_none(),
+            "prefixItems should be dropped"
+        );
         assert_eq!(v["type"], "array");
     }
 
@@ -502,7 +537,10 @@ mod sanitizer_tests {
         let mut v = json!({ "enum": ["linear", "exp", "log", "none"] });
         let original = v.clone();
         sanitize_schema_in_place(&mut v);
-        assert_eq!(v, original, "plain enum arrays should pass through unchanged");
+        assert_eq!(
+            v, original,
+            "plain enum arrays should pass through unchanged"
+        );
     }
 
     #[test]
@@ -516,4 +554,3 @@ mod sanitizer_tests {
         sanitize_schema_in_place(&mut b);
     }
 }
-

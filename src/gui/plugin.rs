@@ -2,10 +2,10 @@
 //!
 //! Implements PluginGuiImpl for DropletMainThread to provide embedded GUI support.
 
+use log;
 use std::num::{NonZeroIsize, NonZeroU32};
 use std::ptr::NonNull;
 use std::sync::Arc;
-use log;
 
 use clack_extensions::gui::*;
 use clack_plugin::prelude::*;
@@ -78,8 +78,12 @@ impl<'a> PluginGuiImpl for DropletMainThread<'a> {
         let mut logical_size = size.to_logical(self.gui.scale_factor);
 
         // Constrain the size
-        logical_size.width = logical_size.width.clamp(MIN_GUI_SIZE.width, MAX_GUI_SIZE.width);
-        logical_size.height = logical_size.height.clamp(MIN_GUI_SIZE.height, MAX_GUI_SIZE.height);
+        logical_size.width = logical_size
+            .width
+            .clamp(MIN_GUI_SIZE.width, MAX_GUI_SIZE.width);
+        logical_size.height = logical_size
+            .height
+            .clamp(MIN_GUI_SIZE.height, MAX_GUI_SIZE.height);
 
         Some(logical_size.to_host_size(self.gui.scale_factor))
     }

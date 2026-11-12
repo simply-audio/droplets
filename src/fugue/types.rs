@@ -78,7 +78,13 @@ impl InterpolationExt for InterpolationMode {
     fn apply_curve(&self, t: f64) -> f64 {
         let t = t.clamp(0.0, 1.0);
         match self {
-            Self::None => if t >= 1.0 { 1.0 } else { 0.0 },
+            Self::None => {
+                if t >= 1.0 {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
             Self::Linear => t,
             Self::Exp => t * t,
             Self::Log => 1.0 - (1.0 - t) * (1.0 - t),
@@ -108,27 +114,55 @@ pub trait FugueEventExt {
 
 impl FugueEventExt for FugueEvent {
     fn note_on(channel: u8, note: u8, velocity: u8) -> FugueEvent {
-        Self::NoteOn { channel, note, velocity }
+        Self::NoteOn {
+            channel,
+            note,
+            velocity,
+        }
     }
 
     fn note_off(channel: u8, note: u8) -> FugueEvent {
-        Self::NoteOff { channel, note, velocity: 0 }
+        Self::NoteOff {
+            channel,
+            note,
+            velocity: 0,
+        }
     }
 
     fn cc(channel: u8, cc: u8, value: u8) -> FugueEvent {
-        Self::Cc { channel, controller: cc, value, interpolation: InterpolationMode::Linear }
+        Self::Cc {
+            channel,
+            controller: cc,
+            value,
+            interpolation: InterpolationMode::Linear,
+        }
     }
 
     fn per_note_pitch_bend(channel: u8, note: u8, semitones: f32) -> FugueEvent {
-        Self::PerNotePitchBend { channel, note, semitones, interpolation: InterpolationMode::Linear }
+        Self::PerNotePitchBend {
+            channel,
+            note,
+            semitones,
+            interpolation: InterpolationMode::Linear,
+        }
     }
 
     fn per_note_pressure(channel: u8, note: u8, pressure: f32) -> FugueEvent {
-        Self::PerNotePressure { channel, note, pressure, interpolation: InterpolationMode::Linear }
+        Self::PerNotePressure {
+            channel,
+            note,
+            pressure,
+            interpolation: InterpolationMode::Linear,
+        }
     }
 
     fn timed_note(channel: u8, note: u8, velocity: u8, duration_beats: f64) -> FugueEvent {
-        Self::TimedNote { channel, note, velocity, duration_beats }
+        Self::TimedNote {
+            channel,
+            note,
+            velocity,
+            duration_beats,
+        }
     }
 
     fn channel(&self) -> u8 {
@@ -179,7 +213,13 @@ pub trait TimedFugueEventExt {
         curve: InterpolationMode,
     ) -> TimedFugueEvent;
     /// Create a TimedNote event at the given beat
-    fn timed_note(beat: f64, channel: u8, note: u8, velocity: u8, duration_beats: f64) -> TimedFugueEvent;
+    fn timed_note(
+        beat: f64,
+        channel: u8,
+        note: u8,
+        velocity: u8,
+        duration_beats: f64,
+    ) -> TimedFugueEvent;
 }
 
 impl TimedFugueEventExt for TimedFugueEvent {
@@ -217,8 +257,17 @@ impl TimedFugueEventExt for TimedFugueEvent {
         )
     }
 
-    fn timed_note(beat: f64, channel: u8, note: u8, velocity: u8, duration_beats: f64) -> TimedFugueEvent {
-        Self::new(beat, FugueEvent::timed_note(channel, note, velocity, duration_beats))
+    fn timed_note(
+        beat: f64,
+        channel: u8,
+        note: u8,
+        velocity: u8,
+        duration_beats: f64,
+    ) -> TimedFugueEvent {
+        Self::new(
+            beat,
+            FugueEvent::timed_note(channel, note, velocity, duration_beats),
+        )
     }
 }
 

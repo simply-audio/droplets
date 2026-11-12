@@ -16,8 +16,8 @@ use clack_plugin::utils::ClapId;
 use std::ffi::CStr;
 use std::fmt::Write as _;
 
-use crate::{DropletMainThread, DropletShared};
 use crate::midi::DropletMidiProcessor;
+use crate::{DropletMainThread, DropletShared};
 
 /// The ClapId for the instance-ID parameter. Picked arbitrarily; must be
 /// stable across the plugin's lifetime so saved projects keep addressing

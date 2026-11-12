@@ -6,8 +6,7 @@ use rtrb::Consumer;
 
 use super::super::command::FugueCommand;
 use super::super::types::{
-    CancelMode, FugueDefinition, FugueEvent, FugueInfo, ProcessedEvent, QuantizeExt,
-    StartMode,
+    CancelMode, FugueDefinition, FugueEvent, FugueInfo, ProcessedEvent, QuantizeExt, StartMode,
 };
 use super::fugue::Fugue;
 use crate::mcp::{MidiMessage, NoteMessage};
@@ -265,9 +264,12 @@ impl FugueSequencer {
                 // NoteOff now, because the new iteration will skip
                 // past beat 0 without firing the matching NoteOn.
                 let dur = f.definition.duration_beats;
-                let phase = if dur > 0.0 { transport_beat.rem_euclid(dur) } else { 0.0 };
-                let new_iter_starts_at_beat_zero =
-                    phase.abs() < 1e-6 || (dur - phase).abs() < 1e-6;
+                let phase = if dur > 0.0 {
+                    transport_beat.rem_euclid(dur)
+                } else {
+                    0.0
+                };
+                let new_iter_starts_at_beat_zero = phase.abs() < 1e-6 || (dur - phase).abs() < 1e-6;
 
                 send_note_offs_for_fugue_skipping_beat0_retriggers(
                     f,
@@ -331,13 +333,14 @@ impl FugueSequencer {
             // wait for the 16-bar loop to finish" escape hatch — the
             // caller explicitly asked for a right-now replacement and the
             // tag default would override their intent.
-            let tag_target = if matches!(fugue.definition.quantize, crate::fugue::QuantizeMode::None) {
-                None
-            } else if let CancelMode::Tag(tag) = &fugue.definition.cancel_mode {
-                tag_loop_boundaries.get(tag).copied()
-            } else {
-                None
-            };
+            let tag_target =
+                if matches!(fugue.definition.quantize, crate::fugue::QuantizeMode::None) {
+                    None
+                } else if let CancelMode::Tag(tag) = &fugue.definition.cancel_mode {
+                    tag_loop_boundaries.get(tag).copied()
+                } else {
+                    None
+                };
 
             let target = tag_target.unwrap_or(quantize_target);
 
@@ -366,7 +369,9 @@ impl FugueSequencer {
             // and rounding UP could push sample_offset to `frames` which
             // the CLAP host drops as out-of-buffer. Same bug pattern as
             // event emission in Fugue::process_buffer.
-            let sample_offset = ((target - current_beat) / beats_per_sample).floor().max(0.0) as u32;
+            let sample_offset = ((target - current_beat) / beats_per_sample)
+                .floor()
+                .max(0.0) as u32;
 
             // Apply cancel mode at the same sample offset as the new fugue starts
             self.apply_cancel_mode_at_offset(&cancel_mode, sample_offset);
@@ -409,7 +414,11 @@ impl FugueSequencer {
             let completed_loops = (elapsed / loop_len).floor();
             let next_boundary = fugue.start_beat + (completed_loops + 1.0) * loop_len;
             out.entry(tag)
-                .and_modify(|prev| { if next_boundary < *prev { *prev = next_boundary; } })
+                .and_modify(|prev| {
+                    if next_boundary < *prev {
+                        *prev = next_boundary;
+                    }
+                })
                 .or_insert(next_boundary);
         }
         out
@@ -431,7 +440,10 @@ impl FugueSequencer {
     /// Cancel all fugues with a given tag, with note-offs at specific sample offset
     fn cancel_fugues_by_tag_at_offset(&mut self, tag: &str, sample_offset: u32) {
         for fugue in &mut self.fugues {
-            if fugue.definition.tag.as_deref() == Some(tag) && !fugue.is_finished() && !fugue.waiting_for_start {
+            if fugue.definition.tag.as_deref() == Some(tag)
+                && !fugue.is_finished()
+                && !fugue.waiting_for_start
+            {
                 send_note_offs_for_fugue_at_offset(fugue, &mut self.output_buffer, sample_offset);
                 fugue.cancel();
             }
@@ -450,12 +462,7 @@ impl FugueSequencer {
     }
 
     /// Process active fugues and emit events
-    fn process_active_fugues(
-        &mut self,
-        current_beat: f64,
-        end_beat: f64,
-        beats_per_sample: f64,
-    ) {
+    fn process_active_fugues(&mut self, current_beat: f64, end_beat: f64, beats_per_sample: f64) {
         let mut any_looped = false;
         for fugue in &mut self.fugues {
             if fugue.waiting_for_start || fugue.is_finished() {
@@ -467,7 +474,12 @@ impl FugueSequencer {
 
             // Fugue pushes directly into the sequencer's shared output
             // buffer — no per-call Vec allocation.
-            fugue.process_buffer(current_beat, end_beat, beats_per_sample, &mut self.output_buffer);
+            fugue.process_buffer(
+                current_beat,
+                end_beat,
+                beats_per_sample,
+                &mut self.output_buffer,
+            );
 
             // Check for loop boundary
             if local_end >= fugue.definition.duration_beats && !fugue.is_finished() {
@@ -478,7 +490,12 @@ impl FugueSequencer {
                 // Process events from the start of the new loop if buffer extends into it
                 let new_local_end = end_beat - fugue.start_beat;
                 if new_local_end > 0.0 {
-                    fugue.process_buffer(current_beat, end_beat, beats_per_sample, &mut self.output_buffer);
+                    fugue.process_buffer(
+                        current_beat,
+                        end_beat,
+                        beats_per_sample,
+                        &mut self.output_buffer,
+                    );
                 }
             }
         }
@@ -632,7 +649,10 @@ fn send_note_offs_for_fugue_skipping_beat0_retriggers(
             continue;
         }
         let msg = MidiMessage::Note(NoteMessage::new(*channel, *note, 0, false));
-        output_buffer.push(ProcessedEvent::Instant { sample_offset: 0, message: msg });
+        output_buffer.push(ProcessedEvent::Instant {
+            sample_offset: 0,
+            message: msg,
+        });
     }
     fugue.clear_active_notes();
     fugue.clear_pending_note_offs();
@@ -647,7 +667,10 @@ fn send_note_offs_for_fugue_at_offset(
 ) {
     for (channel, note) in fugue.get_active_notes() {
         let msg = MidiMessage::Note(NoteMessage::new(channel, note, 0, false));
-        output_buffer.push(ProcessedEvent::Instant { sample_offset, message: msg });
+        output_buffer.push(ProcessedEvent::Instant {
+            sample_offset,
+            message: msg,
+        });
     }
     fugue.clear_active_notes();
     // Ring entries for TimedNote-scheduled NoteOffs are now spurious —
@@ -696,11 +719,19 @@ mod daw_loop_tests {
         for &(beat, pitch, dur) in notes {
             events.push(TimedFugueEvent::new(
                 beat,
-                FugueEvent::NoteOn { channel: 0, note: pitch, velocity: 100 },
+                FugueEvent::NoteOn {
+                    channel: 0,
+                    note: pitch,
+                    velocity: 100,
+                },
             ));
             events.push(TimedFugueEvent::new(
                 beat + dur,
-                FugueEvent::NoteOff { channel: 0, note: pitch, velocity: 0 },
+                FugueEvent::NoteOff {
+                    channel: 0,
+                    note: pitch,
+                    velocity: 0,
+                },
             ));
         }
         events.sort_by(|a, b| a.beat_offset.partial_cmp(&b.beat_offset).unwrap());
@@ -733,9 +764,10 @@ mod daw_loop_tests {
         events
             .iter()
             .filter_map(|e| match e {
-                ProcessedEvent::Instant { sample_offset, message: MidiMessage::Note(n) } => {
-                    Some((*sample_offset, n.channel, n.note, n.is_note_on))
-                }
+                ProcessedEvent::Instant {
+                    sample_offset,
+                    message: MidiMessage::Note(n),
+                } => Some((*sample_offset, n.channel, n.note, n.is_note_on)),
                 _ => None,
             })
             .collect()
@@ -763,7 +795,12 @@ mod daw_loop_tests {
         // must appear in the output buffer — that's the exact note the
         // bug report says is missing.
         let def = make_notes_fugue(
-            &[(0.0, 60, 0.5), (1.0, 62, 0.5), (2.0, 64, 0.5), (3.0, 65, 0.5)],
+            &[
+                (0.0, 60, 0.5),
+                (1.0, 62, 0.5),
+                (2.0, 64, 0.5),
+                (3.0, 65, 0.5),
+            ],
             4.0,
         );
         let mut seq = sequencer_with_fugue(def);
@@ -844,10 +881,7 @@ mod daw_loop_tests {
         // continuously. Every iteration boundary should fire a beat-0
         // NoteOn. If this fails, the bug is internal to the fugue's
         // reset_for_loop path, not the DAW-jump path.
-        let def = make_notes_fugue(
-            &[(0.0, 60, 0.5), (1.0, 62, 0.5)],
-            4.0,
-        );
+        let def = make_notes_fugue(&[(0.0, 60, 0.5), (1.0, 62, 0.5)], 4.0);
         let mut seq = sequencer_with_fugue(def);
 
         // Play through iterations 1, 2, 3 of the fugue. We stop the
@@ -988,7 +1022,9 @@ mod daw_loop_tests {
             leaked
         );
 
-        let note_60 = events.iter().find(|(_, ch, n, on)| *on && *ch == 0 && *n == 60);
+        let note_60 = events
+            .iter()
+            .find(|(_, ch, n, on)| *on && *ch == 0 && *n == 60);
         assert!(
             note_60.is_some(),
             "note 60 should fire at transport 16 under Boundary mode. Events: {:?}",
@@ -1001,7 +1037,9 @@ mod daw_loop_tests {
             t60
         );
 
-        let note_62 = events.iter().find(|(_, ch, n, on)| *on && *ch == 0 && *n == 62);
+        let note_62 = events
+            .iter()
+            .find(|(_, ch, n, on)| *on && *ch == 0 && *n == 62);
         if let Some((t62, _, _, _)) = note_62 {
             assert!(
                 (*t62 - 20.0).abs() < 0.05,
@@ -1147,7 +1185,9 @@ mod daw_loop_tests {
         // 1) The new fugue must have produced *some* event before the
         //    old 16-bar boundary — the tag alignment was overridden.
         assert!(
-            note_ons.iter().any(|(t, n)| (*n == 72 || *n == 74) && *t < 16.0),
+            note_ons
+                .iter()
+                .any(|(t, n)| (*n == 72 || *n == 74) && *t < 16.0),
             "quantize:immediate should have emitted the new fugue before transport 16; \
              got NoteOns {:?}",
             note_ons
@@ -1163,7 +1203,8 @@ mod daw_loop_tests {
             early_event.is_none(),
             "first iteration's events are all behind the cutover phase (~{:.2}); \
              nothing should fire between cutover and transport 4. Got {:?}",
-            mid, early_event
+            mid,
+            early_event
         );
 
         // 3) Next song-grid iteration's pattern-beat-0 fires at transport 4.
@@ -1221,7 +1262,9 @@ mod daw_loop_tests {
         // see the cutover's NoteOff.
         seq.process(true, mid, TEMPO, BUFFER_FRAMES, TIME_SIG);
         let notes_in_buffer = collect_notes(seq.events());
-        let note_off_60 = notes_in_buffer.iter().find(|(_, ch, note, on)| !*on && *ch == 0 && *note == 60);
+        let note_off_60 = notes_in_buffer
+            .iter()
+            .find(|(_, ch, note, on)| !*on && *ch == 0 && *note == 60);
         assert!(
             note_off_60.is_some(),
             "immediate cutover must emit NoteOff for the old fugue's held pitch 60; \
@@ -1295,10 +1338,7 @@ mod timed_note_tests {
     /// Build a fugue using `FugueEvent::TimedNote` events — the form
     /// `emit_notes` produces from LLM-authored notes since Feature 28.
     /// Channel 0, velocity 100 unless overridden.
-    fn make_timed_notes_fugue(
-        notes: &[(f64, u8, f64)],
-        duration_beats: f64,
-    ) -> FugueDefinition {
+    fn make_timed_notes_fugue(notes: &[(f64, u8, f64)], duration_beats: f64) -> FugueDefinition {
         let mut events = Vec::new();
         for &(beat, pitch, dur) in notes {
             events.push(TimedFugueEvent::new(
@@ -1336,7 +1376,11 @@ mod timed_note_tests {
         while current < end {
             seq.process(true, current, TEMPO, BUFFER_FRAMES, TIME_SIG);
             for e in seq.events() {
-                if let ProcessedEvent::Instant { sample_offset, message: MidiMessage::Note(n) } = *e {
+                if let ProcessedEvent::Instant {
+                    sample_offset,
+                    message: MidiMessage::Note(n),
+                } = *e
+                {
                     let absolute = current + sample_offset as f64 * beats_per_sample();
                     out.push((absolute, n.channel, n.note, n.is_note_on));
                 }
@@ -1359,8 +1403,16 @@ mod timed_note_tests {
         let off = events.iter().find(|(_, _, n, on)| !*on && *n == 60);
         let (t_on, _, _, _) = on.expect("NoteOn missing");
         let (t_off, _, _, _) = off.expect("NoteOff missing");
-        assert!((t_on - 1.0).abs() < buffer_beats(), "NoteOn should fire ≈ beat 1.0, got {:.3}", t_on);
-        assert!((t_off - 3.0).abs() < buffer_beats(), "NoteOff should fire ≈ beat 3.0 (= 1 + 2), got {:.3}", t_off);
+        assert!(
+            (t_on - 1.0).abs() < buffer_beats(),
+            "NoteOn should fire ≈ beat 1.0, got {:.3}",
+            t_on
+        );
+        assert!(
+            (t_off - 3.0).abs() < buffer_beats(),
+            "NoteOff should fire ≈ beat 3.0 (= 1 + 2), got {:.3}",
+            t_off
+        );
     }
 
     /// Same-pitch retrigger: TimedNote A plays at beat 0 with duration
@@ -1371,10 +1423,7 @@ mod timed_note_tests {
     /// simultaneous OFF/ON pair that it might collapse.
     #[test]
     fn same_pitch_retrigger_emits_note_off_strictly_before_next_note_on() {
-        let def = make_timed_notes_fugue(
-            &[(0.0, 60, 4.0), (2.0, 60, 2.0)],
-            16.0,
-        );
+        let def = make_timed_notes_fugue(&[(0.0, 60, 4.0), (2.0, 60, 2.0)], 16.0);
         let mut seq = sequencer_with_fugue(def);
         let events = collect_notes_over(&mut seq, 0.0, 5.0);
 
@@ -1433,8 +1482,16 @@ mod timed_note_tests {
 
         let on_count: usize = events.iter().filter(|(_, _, _, on)| *on).count();
         let off_count: usize = events.iter().filter(|(_, _, _, on)| !*on).count();
-        assert_eq!(on_count, 1, "only note 62 should NoteOn. Events: {:?}", events);
-        assert_eq!(off_count, 1, "only note 62 should NoteOff. Events: {:?}", events);
+        assert_eq!(
+            on_count, 1,
+            "only note 62 should NoteOn. Events: {:?}",
+            events
+        );
+        assert_eq!(
+            off_count, 1,
+            "only note 62 should NoteOff. Events: {:?}",
+            events
+        );
         assert!(events.iter().any(|(_, _, n, on)| *n == 62 && *on));
     }
 
@@ -1454,7 +1511,11 @@ mod timed_note_tests {
 
         let on_count: usize = events.iter().filter(|(_, _, _, on)| *on).count();
         let off_count: usize = events.iter().filter(|(_, _, _, on)| !*on).count();
-        assert_eq!(on_count, 16, "16 concurrent TimedNotes should produce 16 NoteOns. Events: {:?}", events);
+        assert_eq!(
+            on_count, 16,
+            "16 concurrent TimedNotes should produce 16 NoteOns. Events: {:?}",
+            events
+        );
         assert_eq!(off_count, 16, "...and 16 matching NoteOffs");
 
         // Every pitch from 60..76 should see exactly one OFF at
@@ -1517,10 +1578,14 @@ mod timed_note_tests {
         let on_count: usize = events.iter().filter(|(_, _, _, on)| *on).count();
         let off_count: usize = events.iter().filter(|(_, _, _, on)| !*on).count();
         assert_eq!(
-            on_count, off_count,
+            on_count,
+            off_count,
             "every NoteOn must eventually pair with a NoteOff after voice-stealing \
              settled. on_count = {}, off_count = {}. MAX_PENDING = {}, total notes = {}.",
-            on_count, off_count, super::super::fugue::MAX_PENDING_NOTE_OFFS, count
+            on_count,
+            off_count,
+            super::super::fugue::MAX_PENDING_NOTE_OFFS,
+            count
         );
     }
 
@@ -1537,10 +1602,24 @@ mod timed_note_tests {
         let mut seq = sequencer_with_fugue(def);
         let events = collect_notes_over(&mut seq, 0.0, 7.0);
 
-        let (t_on, _, _, _) = events.iter().find(|(_, _, n, on)| *on && *n == 60).expect("NoteOn missing");
-        let (t_off, _, _, _) = events.iter().find(|(_, _, n, on)| !*on && *n == 60).expect("NoteOff missing");
-        assert!(t_off - t_on > 4.0, "NoteOff should land roughly 5 beats after NoteOn; got delta {:.3}", t_off - t_on);
-        assert!((t_off - 5.0).abs() < buffer_beats(), "NoteOff should fire ≈ beat 5.0, got {:.3}", t_off);
+        let (t_on, _, _, _) = events
+            .iter()
+            .find(|(_, _, n, on)| *on && *n == 60)
+            .expect("NoteOn missing");
+        let (t_off, _, _, _) = events
+            .iter()
+            .find(|(_, _, n, on)| !*on && *n == 60)
+            .expect("NoteOff missing");
+        assert!(
+            t_off - t_on > 4.0,
+            "NoteOff should land roughly 5 beats after NoteOn; got delta {:.3}",
+            t_off - t_on
+        );
+        assert!(
+            (t_off - 5.0).abs() < buffer_beats(),
+            "NoteOff should fire ≈ beat 5.0, got {:.3}",
+            t_off
+        );
     }
 
     /// Loop-boundary NoteOff: a TimedNote whose end is past
@@ -1561,8 +1640,14 @@ mod timed_note_tests {
         // plays the note at beat 3.5 and its NoteOff should land at
         // beat 4.5 — inside iteration 2 but still correctly emitted
         // from the ring.
-        let on = events.iter().find(|(_, _, n, on)| *on && *n == 60).expect("NoteOn missing");
-        let off = events.iter().find(|(_, _, n, on)| !*on && *n == 60).expect("NoteOff missing");
+        let on = events
+            .iter()
+            .find(|(_, _, n, on)| *on && *n == 60)
+            .expect("NoteOn missing");
+        let off = events
+            .iter()
+            .find(|(_, _, n, on)| !*on && *n == 60)
+            .expect("NoteOff missing");
         assert!(
             (on.0 - 3.5).abs() < buffer_beats(),
             "NoteOn should land ≈ beat 3.5, got {:.3}",
