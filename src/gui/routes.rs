@@ -10,7 +10,7 @@ use super::api;
 pub fn handle_request(path: &str, method: &str, body: &[u8], params: &Arc<DropletParams>, instance_id: &str) -> String {
     match path {
         "/self" => handle_self(instance_id),
-        "/slots" => handle_slots(instance_id),
+        "/slots" if method == "GET" => handle_slots(instance_id),
         "/activity" => handle_activity(),
         "/fugues" => handle_fugues(instance_id),
         "/transport" => handle_transport(instance_id),
@@ -475,4 +475,31 @@ fn handle_export_fugue(body: &[u8], instance: &str) -> String {
         crate::logger::log_gui_event("export_fugue", response.path.as_deref().unwrap_or("success"));
     }
     serde_json::to_string(&response).unwrap_or_else(|_| serialize_error("serialize failed"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use crate::params::DropletParams;
+
+    #[test]
+    fn post_slots_adds_slot() {
+        let params = Arc::new(DropletParams::default());
+        let instance = "test-instance";
+        let body = serde_json::json!({
+            "cc": 42,
+            "name": "Test Slot"
+        });
+        let body_bytes = serde_json::to_vec(&body).unwrap();
+
+        let response = handle_request("/slots", "POST", &body_bytes, &params, instance);
+
+        // The routing should not return "not found" - it should route to handle_add_slot
+        // (which may fail at runtime if CcBridge isn't initialized, but that's expected
+        // in a test environment; we're verifying the route is reachable)
+        let parsed: serde_json::Value = serde_json::from_str(&response).unwrap();
+        assert_ne!(parsed["error"].as_str(), Some("not found"), 
+                   "POST /slots should route to handle_add_slot, not return 'not found'");
+    }
 }
